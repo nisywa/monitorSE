@@ -54,12 +54,9 @@ class UserController extends Controller
     public function storePml(Request $request)
     {
         $data = $request->validate([
-            'nama_pml' => 'required|string|max:255',
+            'nama' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'tanggal_lahir' => 'required|date',
-            'kabupaten' => 'required|string|max:255',
-            'kecamatan' => 'required|string|max:255',
-            'nomor_telepon' => 'required|string|max:15',
         ]);
 
         // Generate password otomatis dari tanggal lahir (DDMMYYYY)
@@ -67,17 +64,15 @@ class UserController extends Controller
 
         DB::transaction(function () use ($data, $generatedPassword) {
             $user = User::create([
-                'nama' => $data['nama_pml'],
+                'nama' => $data['nama'],
                 'email' => $data['email'],
                 'password' => Hash::make($generatedPassword),
                 'role' => 'PML',
             ]);
             Pml::create([
                 'user_id' => $user->id,
-                'nama_pml' => $data['nama_pml'],
-                'kabupaten' => $data['kabupaten'],
-                'kecamatan' => $data['kecamatan'],
-                'nomor_telepon' => $data['nomor_telepon'],
+                'nama_pml' => $data['nama'],
+                'tanggal_lahir' => $data['tanggal_lahir'],
             ]);
         });
 

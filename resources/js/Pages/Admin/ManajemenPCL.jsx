@@ -11,7 +11,6 @@ export default function ManajemenPCL({ pcls, pmls }) {
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
         email: '',
-        password: '',
         pml_id: '',
         tanggal_lahir: '',
         asal_kecamatan: '',
@@ -30,7 +29,6 @@ export default function ManajemenPCL({ pcls, pmls }) {
         setData({
             nama: pcl.nama_PCL,
             email: pcl.email,
-            password: '',
             pml_id: String(pcl.pml_id),
             tanggal_lahir: pcl.tanggal_lahir,
             asal_kecamatan: pcl.asal_kecamatan,
@@ -190,16 +188,6 @@ export default function ManajemenPCL({ pcls, pmls }) {
                                 className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-200'}`}
                                 placeholder="Email" />
                             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Password {editData && <span className="text-gray-400 font-normal text-xs">(opsional)</span>}
-                            </label>
-                            <input type="password" value={data.password} onChange={e => setData('password', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.password ? 'border-red-300' : 'border-gray-200'}`}
-                                placeholder={editData ? 'Kosongkan jika tidak diubah' : 'Password'} />
-                            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                         </div>
 
                         <div>

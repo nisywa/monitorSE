@@ -22,7 +22,7 @@ class PmlController extends Controller
             ->map(function ($pml) {
                 return [
                     'id'            => $pml->id,
-                    'nama_pml'      => $pml->nama_pml,
+                    'nama_PML'      => $pml->nama_pml,
                     'tanggal_lahir' => $pml->tanggal_lahir,
                     'email'         => $pml->user->email ?? '-',
                     'total_pcl'     => $pml->pcl()->count(),
@@ -30,7 +30,7 @@ class PmlController extends Controller
             });
 
         return Inertia::render('Admin/ManajemenPML', [
-            'pml' => $pmls,
+            'pmls' => $pmls,
         ]);
     }
 
@@ -39,38 +39,73 @@ class PmlController extends Controller
      */
     public function store(Request $request)
     {
+        // $request->validate([
+        //     'nama'          => 'required|string|max:255',
+        //     'email'         => 'required|email|unique:users,email',
+        //     'password'      => 'required|min:6',
+        //     'tanggal_lahir' => 'required|date',
+        // ], [
+        //     'nama.required'          => 'Nama PML wajib diisi.',
+        //     'email.required'         => 'Email wajib diisi.',
+        //     'email.unique'           => 'Email sudah digunakan.',
+        //     'password.required'      => 'Password wajib diisi.',
+        //     'password.min'           => 'Password minimal 6 karakter.',
+        //     'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
+        // ]);
+
+        // DB::transaction(function () use ($request) {
+        //     // Simpan ke tabel users
+        //     $user = User::create([
+        //         'nama'     => $request->nama,
+        //         'email'    => $request->email,
+        //         'password' => Hash::make($request->password),
+        //         'role'     => 'PML',
+        //     ]);
+
+        //     // Simpan ke tabel pmls
+        //     Pml::create([
+        //         'user_id'       => $user->id,
+        //         'nama_pml'      => $request->nama,
+        //         'tanggal_lahir' => $request->tanggal_lahir,
+        //     ]);
+        // });
+
+        // return redirect()->back()->with('success', 'Data PML berhasil ditambahkan.');
+       
+        ///// UPDATE CODE
         $request->validate([
-            'nama'          => 'required|string|max:255',
-            'email'         => 'required|email|unique:users,email',
-            'password'      => 'required|min:6',
-            'tanggal_lahir' => 'required|date',
-        ], [
-            'nama.required'          => 'Nama PML wajib diisi.',
-            'email.required'         => 'Email wajib diisi.',
-            'email.unique'           => 'Email sudah digunakan.',
-            'password.required'      => 'Password wajib diisi.',
-            'password.min'           => 'Password minimal 6 karakter.',
-            'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
+        'nama'          => 'required|string|max:255',
+        'email'         => 'required|email|unique:users,email',
+        'tanggal_lahir' => 'required|date',
+    ], [
+        'nama.required'          => 'Nama PML wajib diisi.',
+        'email.required'         => 'Email wajib diisi.',
+        'email.unique'           => 'Email sudah digunakan.',
+        'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
+    ]);
+
+    // ✅ Generate password otomatis dari tanggal lahir (format: YYYYMMDD)
+    $password = str_replace('-', '', $request->tanggal_lahir);
+
+    DB::transaction(function () use ($request, $password) {
+        $user = User::create([
+            'nama'     => $request->nama,
+            'email'    => $request->email,
+            'password' => Hash::make($password),
+            'role'     => 'PML',
         ]);
 
-        DB::transaction(function () use ($request) {
-            // Simpan ke tabel users
-            $user = User::create([
-                'nama'     => $request->nama,
-                'email'    => $request->email,
-                'password' => Hash::make($request->password),
-                'role'     => 'PML',
-            ]);
+        Pml::create([
+            'user_id'       => $user->id,
+            'nama_pml'      => $request->nama,
+            'tanggal_lahir' => $request->tanggal_lahir,
+        ]);
+    });
 
-            // Simpan ke tabel pmls
-            Pml::create([
-                'user_id'       => $user->id,
-                'nama_pml'      => $request->nama,
-                'tanggal_lahir' => $request->tanggal_lahir,
-            ]);
-        });
+    // ✅ Kirim info password ke frontend lewat flash message
+    return redirect()->back()->with('success', "PML berhasil ditambahkan. Password default: {$password}");
 
-        return redirect()->back()->with('success', 'Data PML berhasil ditambahkan.');
+    
     }
 
     /**
@@ -93,40 +128,81 @@ class PmlController extends Controller
      */
     public function update(Request $request, $id)
     {
+        // $pml = Pml::with('user')->findOrFail($id);
+
+        // $request->validate([
+        //     'nama'          => 'required|string|max:255',
+        //     'email'         => 'required|email|unique:users,email,' . $pml->user->id,
+        //     'tanggal_lahir' => 'required|date',
+        //     'password'      => 'nullable|min:6',
+        // ], [
+        //     'nama.required'          => 'Nama PML wajib diisi.',
+        //     'email.required'         => 'Email wajib diisi.',
+        //     'email.unique'           => 'Email sudah digunakan.',
+        //     'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
+        //     'password.min'           => 'Password minimal 6 karakter.',
+        // ]);
+
+        // DB::transaction(function () use ($request, $pml) {
+        //     // Update tabel users
+        //     $userData = [
+        //         'nama'  => $request->nama,
+        //         'email' => $request->email,
+        //     ];
+        //     if ($request->filled('password')) {
+        //         $userData['password'] = Hash::make($request->password);
+        //     }
+        //     $pml->user->update($userData);
+
+        //     // Update tabel pmls
+        //     $pml->update([
+        //         'nama_pml'      => $request->nama,
+        //         'tanggal_lahir' => $request->tanggal_lahir,
+        //     ]);
+        // });
+
+        // return redirect()->back()->with('success', 'Data PML berhasil diperbarui.');
+        ///// UPDATE CODE
+
         $pml = Pml::with('user')->findOrFail($id);
 
-        $request->validate([
-            'nama'          => 'required|string|max:255',
-            'email'         => 'required|email|unique:users,email,' . $pml->user->id,
-            'tanggal_lahir' => 'required|date',
-            'password'      => 'nullable|min:6',
-        ], [
-            'nama.required'          => 'Nama PML wajib diisi.',
-            'email.required'         => 'Email wajib diisi.',
-            'email.unique'           => 'Email sudah digunakan.',
-            'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
-            'password.min'           => 'Password minimal 6 karakter.',
+    $request->validate([
+        'nama'          => 'required|string|max:255',
+        'email'         => 'required|email|unique:users,email,' . $pml->user->id,
+        'tanggal_lahir' => 'required|date',
+    ], [
+        'nama.required'          => 'Nama PML wajib diisi.',
+        'email.required'         => 'Email wajib diisi.',
+        'email.unique'           => 'Email sudah digunakan.',
+        'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
+    ]);
+
+    DB::transaction(function () use ($request, $pml) {
+        $pml->user->update([
+            'nama'  => $request->nama,
+            'email' => $request->email,
         ]);
 
-        DB::transaction(function () use ($request, $pml) {
-            // Update tabel users
-            $userData = [
-                'nama'  => $request->nama,
-                'email' => $request->email,
-            ];
-            if ($request->filled('password')) {
-                $userData['password'] = Hash::make($request->password);
-            }
-            $pml->user->update($userData);
+        // ✅ Jika tanggal lahir diubah, reset password sesuai tanggal baru
+        if ($request->tanggal_lahir !== $pml->tanggal_lahir) {
+            $newPassword = str_replace('-', '', $request->tanggal_lahir);
+            $pml->user->update(['password' => Hash::make($newPassword)]);
+        }
 
-            // Update tabel pmls
-            $pml->update([
-                'nama_pml'      => $request->nama,
-                'tanggal_lahir' => $request->tanggal_lahir,
-            ]);
-        });
+        $pml->update([
+            'nama_PML'      => $request->nama,
+            'tanggal_lahir' => $request->tanggal_lahir,
+        ]);
+    });
 
-        return redirect()->back()->with('success', 'Data PML berhasil diperbarui.');
+    $msg = 'Data PML berhasil diperbarui.';
+    if ($request->tanggal_lahir !== $pml->getOriginal('tanggal_lahir')) {
+        $newPassword = str_replace('-', '', $request->tanggal_lahir);
+        $msg .= " Password direset menjadi: {$newPassword}";
+    }
+
+    return redirect()->back()->with('success', $msg);
+
     }
 
     /**

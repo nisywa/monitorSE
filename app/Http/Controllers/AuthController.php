@@ -9,23 +9,27 @@ use Inertia\Inertia;
 class AuthController extends Controller
 {
     public function login(Request $request) {
-    $credentials = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required',
-    ]);
-    if (!Auth::attempt($credentials)) {
-        return response()->json(['message' => 'Email atau password salah'], 401);
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+        
+        if (!Auth::attempt($credentials)) {
+            return back()->withErrors(['email' => 'Email atau password salah']);
+        }
+        
+        $request->session()->regenerate();
+        return redirect()->route('dashboard')->with('success', 'Login berhasil');
     }
-    $user = Auth::user();
-    $token = $user->createToken('auth_token')->plainTextToken;
-    return response()->json(['token' => $token, 'user' => $user, 'role' => $user->role]);
-}
 
 
 
 public function logout(Request $request) {
-    $request->user()->currentAccessToken()->delete();
-    return response()->json(['message' => 'Logout berhasil']);
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    
+    return redirect('/login')->with('success', 'Logout berhasil');
 }
 
 

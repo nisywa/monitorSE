@@ -13,7 +13,6 @@ export default function ManajemenPML({ pmls }) {
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
         email: '',
-        password: '',
         tanggal_lahir: '',
     });
 
@@ -26,7 +25,7 @@ export default function ManajemenPML({ pmls }) {
 
     const openEdit = (pml) => {
         setEditData(pml);
-        setData({ nama: pml.nama_PML, email: pml.email, password: '', tanggal_lahir: pml.tanggal_lahir });
+        setData({ nama: pml.nama_PML, email: pml.email, tanggal_lahir: pml.tanggal_lahir });
         clearErrors();
         setShowModal(true);
     };
@@ -193,20 +192,6 @@ export default function ManajemenPML({ pmls }) {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Password {editData && <span className="text-gray-400 font-normal">(kosongkan jika tidak diubah)</span>}
-                        </label>
-                        <input
-                            type="password"
-                            value={data.password}
-                            onChange={e => setData('password', e.target.value)}
-                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.password ? 'border-red-300' : 'border-gray-200'}`}
-                            placeholder={editData ? 'Kosongkan jika tidak diubah' : 'Masukkan password'}
-                        />
-                        {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                    </div>
-
-                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</label>
                         <input
                             type="date"
@@ -222,6 +207,21 @@ export default function ManajemenPML({ pmls }) {
                             className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
                             Batal
                         </button>
+
+                        {/* Info password otomatis — letakkan sebelum tombol submit */}
+                        {/* {data.tanggal_lahir && (
+                            <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex items-start gap-2">
+                                <svg className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                                </svg>
+                                <div className="text-sm text-blue-700">
+                                    Password otomatis:{' '}
+                                    <strong className="font-mono tracking-wider">
+                                        {data.tanggal_lahir.replace(/-/g, '')}
+                                    </strong>
+                                </div>
+                            </div>
+                        )} */}
                         <button type="submit" disabled={processing}
                             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
                             {processing ? 'Menyimpan...' : editData ? 'Simpan Perubahan' : 'Tambah PML'}
