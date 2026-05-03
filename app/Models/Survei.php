@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Survei extends Model
 {
+    protected $table = 'survei';
     protected $fillable = ['nama_survei', 'tanggal_mulai', 'tanggal_selesai', 'pml_id'];
 
     public function pml() { return $this->belongsTo(Pml::class); }

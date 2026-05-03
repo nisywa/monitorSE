@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Pml extends Model
 {
-        protected $fillable = ['user_id', 'nama_pml', 'tanggal_lahir'];
+    protected $table = 'pml';
+    protected $fillable = ['user_id', 'nama_pml', 'tanggal_lahir'];
 
     public function user() { return $this->belongsTo(User::class); }
     public function pcl() { return $this->hasMany(Pcl::class); }

@@ -11,24 +11,26 @@ use App\Models\Pml;
 
 class UserController extends Controller
 {
-    //membuat akun PCL/PML
+    //membuat akun PCL
     public function storePcl(Request $request)
     {
         $data = $request->validate([
             'nama_pcl' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8',
             'pml_id' => 'required|exists:pml,id',
             'tanggal_lahir' => 'required|date',
             'asal_kecamatan' => 'required|string',
             'blok_sensus' => 'required|string',
         ]);
 
-        DB::transaction(function () use ($data) {
+        // Generate password otomatis dari tanggal lahir (DDMMYYYY)
+        $generatedPassword = date('dmY', strtotime($data['tanggal_lahir']));
+
+        DB::transaction(function () use ($data, $generatedPassword) {
             $user = User::create([
                 'nama' => $data['nama_pcl'],
                 'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'password' => Hash::make($generatedPassword),
                 'role' => 'PCL',
             ]);
             Pcl::create([
@@ -41,7 +43,11 @@ class UserController extends Controller
             ]);
         });
 
-        return response()->json(['message' => 'Akun PCL berhasil dibuat'], 201);
+        return response()->json([
+            'message' => 'Akun PCL berhasil dibuat',
+            'password' => $generatedPassword,
+            'note' => 'Password otomatis generate dari tanggal lahir (DDMMYYYY)'
+        ], 201);
     }
 
     //membuat akun PML
@@ -50,17 +56,20 @@ class UserController extends Controller
         $data = $request->validate([
             'nama_pml' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8',
+            'tanggal_lahir' => 'required|date',
             'kabupaten' => 'required|string|max:255',
             'kecamatan' => 'required|string|max:255',
             'nomor_telepon' => 'required|string|max:15',
         ]);
 
-        DB::transaction(function () use ($data) {
+        // Generate password otomatis dari tanggal lahir (DDMMYYYY)
+        $generatedPassword = date('dmY', strtotime($data['tanggal_lahir']));
+
+        DB::transaction(function () use ($data, $generatedPassword) {
             $user = User::create([
                 'nama' => $data['nama_pml'],
                 'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'password' => Hash::make($generatedPassword),
                 'role' => 'PML',
             ]);
             Pml::create([
@@ -72,6 +81,10 @@ class UserController extends Controller
             ]);
         });
 
-        return response()->json(['message' => 'Akun PML berhasil dibuat'], 201);
+        return response()->json([
+            'message' => 'Akun PML berhasil dibuat',
+            'password' => $generatedPassword,
+            'note' => 'Password otomatis generate dari tanggal lahir (DDMMYYYY)'
+        ], 201);
     }
 }

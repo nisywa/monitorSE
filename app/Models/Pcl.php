@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Pcl extends Model
 {
+    protected $table = 'pcl';
     protected $fillable = ['user_id', 'pml_id', 'nama_pcl', 'tanggal_lahir', 'asal_kecamatan', 'blok_sensus'];
 
     public function user() { return $this->belongsTo(User::class); }
