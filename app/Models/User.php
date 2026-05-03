@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['nama', 'email', 'password', 'role'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -22,6 +22,10 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    protected $fillable = ['nama', 'email', 'password', 'role'];
+
+    public function pml() { return $this->hasOne(Pml::class); }
+    public function pcl() { return $this->hasOne(Pcl::class); }
     protected function casts(): array
     {
         return [
