@@ -23,18 +23,26 @@ class PclController extends Controller
             ->map(function ($pcl) {
                 return [
                     'id'              => $pcl->id,
-                    'nama_pcl'        => $pcl->nama_pcl,
+                    'nama_PCL'        => $pcl->nama_pcl,
                     'tanggal_lahir'   => $pcl->tanggal_lahir,
                     'asal_kecamatan'  => $pcl->asal_kecamatan,
                     'blok_sensus'     => $pcl->blok_sensus,
                     'email'           => $pcl->user->email ?? '-',
-                    'nama_pml'        => $pcl->pml->nama_pml ?? '-',
+                    'nama_PML'        => $pcl->pml->nama_pml ?? '-',
                     'pml_id'          => $pcl->pml_id,
                 ];
             });
 
         // Ambil daftar PML untuk dropdown
-        $pmls = Pml::select('id', 'nama_pml')->orderBy('nama_pml')->get();
+        $pmls = Pml::select('id', 'nama_pml')
+            ->orderBy('nama_pml')
+            ->get()
+            ->map(function ($pml) {
+                return [
+                    'id'        => $pml->id,
+                    'nama_PML'  => $pml->nama_pml,
+                ];
+            });
 
         return Inertia::render('Admin/ManajemenPCL', [
             'pcls' => $pcls,
@@ -50,8 +58,7 @@ class PclController extends Controller
         $request->validate([
             'nama'           => 'required|string|max:255',
             'email'          => 'required|email|unique:users,email',
-            'password'       => 'required|min:6',
-            'pml_id'         => 'required|exists:pmls,id',
+            'pml_id'         => 'required|exists:pml,id',
             'tanggal_lahir'  => 'required|date',
             'asal_kecamatan' => 'required|string|max:255',
             'blok_sensus'    => 'required|string|max:255',
@@ -59,8 +66,6 @@ class PclController extends Controller
             'nama.required'           => 'Nama PCL wajib diisi.',
             'email.required'          => 'Email wajib diisi.',
             'email.unique'            => 'Email sudah digunakan.',
-            'password.required'       => 'Password wajib diisi.',
-            'password.min'            => 'Password minimal 6 karakter.',
             'pml_id.required'         => 'PML wajib dipilih.',
             'pml_id.exists'           => 'PML tidak ditemukan.',
             'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
@@ -68,16 +73,19 @@ class PclController extends Controller
             'blok_sensus.required'    => 'Blok sensus wajib diisi.',
         ]);
 
-        DB::transaction(function () use ($request) {
+        // Generate password otomatis dari tanggal lahir (DDMMYYYY)
+        $generatedPassword = date('dmY', strtotime($request->tanggal_lahir));
+
+        DB::transaction(function () use ($request, $generatedPassword) {
             // Simpan ke tabel users
             $user = User::create([
                 'nama'     => $request->nama,
                 'email'    => $request->email,
-                'password' => Hash::make($request->password),
+                'password' => Hash::make($generatedPassword),
                 'role'     => 'PCL',
             ]);
 
-            // Simpan ke tabel pcls
+            // Simpan ke tabel pcl
             Pcl::create([
                 'user_id'        => $user->id,
                 'pml_id'         => $request->pml_id,
@@ -88,7 +96,7 @@ class PclController extends Controller
             ]);
         });
 
-        return redirect()->back()->with('success', 'Data PCL berhasil ditambahkan.');
+        return redirect()->back()->with('success', "Data PCL berhasil ditambahkan. Password default: {$generatedPassword}");
     }
 
     /**
@@ -119,7 +127,7 @@ class PclController extends Controller
         $request->validate([
             'nama'           => 'required|string|max:255',
             'email'          => 'required|email|unique:users,email,' . $pcl->user->id,
-            'pml_id'         => 'required|exists:pmls,id',
+            'pml_id'         => 'required|exists:pml,id',
             'tanggal_lahir'  => 'required|date',
             'asal_kecamatan' => 'required|string|max:255',
             'blok_sensus'    => 'required|string|max:255',

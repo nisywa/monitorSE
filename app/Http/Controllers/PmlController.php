@@ -190,7 +190,7 @@ class PmlController extends Controller
         }
 
         $pml->update([
-            'nama_PML'      => $request->nama,
+            'nama_pml'      => $request->nama,
             'tanggal_lahir' => $request->tanggal_lahir,
         ]);
     });
