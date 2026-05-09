@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 
@@ -129,7 +129,6 @@ export default function ManajemenSurvei({ surveis, pmls }) {
                             <tr className="bg-gray-50 border-b border-gray-100">
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama Survei</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">PML</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Mulai</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Selesai</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -140,7 +139,7 @@ export default function ManajemenSurvei({ surveis, pmls }) {
                         <tbody className="divide-y divide-gray-50">
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center py-12 text-gray-400 text-sm">
+                                    <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
                                         {search || filterStatus ? 'Tidak ada hasil.' : 'Belum ada data survei.'}
                                     </td>
                                 </tr>
@@ -148,11 +147,6 @@ export default function ManajemenSurvei({ surveis, pmls }) {
                                 <tr key={survei.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
                                     <td className="px-5 py-3.5 font-medium text-gray-800">{survei.nama_survei}</td>
-                                    <td className="px-5 py-3.5">
-                                        <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                                            {survei.nama_PML}
-                                        </span>
-                                    </td>
                                     <td className="px-5 py-3.5 text-gray-600">{survei.tanggal_mulai}</td>
                                     <td className="px-5 py-3.5 text-gray-600">{survei.tanggal_selesai}</td>
                                     <td className="px-5 py-3.5">
@@ -163,6 +157,13 @@ export default function ManajemenSurvei({ surveis, pmls }) {
                                     <td className="px-5 py-3.5 text-gray-600">{survei.total_laporan}</td>
                                     <td className="px-5 py-3.5 text-right">
                                         <div className="flex items-center justify-end gap-2">
+                                            <Link href={`/manajemen-survei/${survei.id}/detail`}
+                                                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Details
+                                            </Link>
                                             <button onClick={() => openEdit(survei)}
                                                 className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

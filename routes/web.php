@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
         // Manajemen Survei
         Route::get('/manajemen-survei', [SurveiController::class, 'index'])->name('survei.index');
         Route::post('/manajemen-survei', [SurveiController::class, 'store'])->name('survei.store');
+        Route::get('/manajemen-survei/{id}/detail', [SurveiController::class, 'detail'])->name('survei.detail');
         Route::get('/manajemen-survei/{id}', [SurveiController::class, 'show'])->name('survei.show');
         Route::put('/manajemen-survei/{id}', [SurveiController::class, 'update'])->name('survei.update');
         Route::delete('/manajemen-survei/{id}', [SurveiController::class, 'destroy'])->name('survei.destroy');

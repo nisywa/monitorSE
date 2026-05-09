@@ -81,7 +81,50 @@ class SurveiController extends Controller
     }
 
     /**
-     * Tampilkan data survei tertentu (untuk form edit)
+     * Tampilkan halaman detail survei
+     */
+    public function detail($id)
+    {
+        $survei = Survei::findOrFail($id);
+        $pmls = $survei->pmls()->get();
+        $pcls = $survei->pcls()->with('user', 'pml')->get();
+        $laporan = $survei->laporan()->get();
+
+        return Inertia::render('Admin/DetailSurvei', [
+            'survei' => [
+                'id' => $survei->id,
+                'nama_survei' => $survei->nama_survei,
+                'tanggal_mulai' => $survei->tanggal_mulai,
+                'tanggal_selesai' => $survei->tanggal_selesai,
+                'status' => $this->getStatus($survei->tanggal_mulai, $survei->tanggal_selesai),
+            ],
+            'pmls' => $pmls->map(fn($pml) => [
+                'id' => $pml->id,
+                'nama_pml' => $pml->nama_pml,
+                'user' => [
+                    'email' => $pml->user->email,
+                ],
+            ]),
+            'pcls' => $pcls->map(fn($pcl) => [
+                'id' => $pcl->id,
+                'nama_pcl' => $pcl->nama_pcl,
+                'user' => [
+                    'email' => $pcl->user->email,
+                ],
+                'pml' => [
+                    'nama_pml' => $pcl->pml->nama_pml,
+                ],
+            ]),
+            'laporan' => $laporan->map(fn($lap) => [
+                'id' => $lap->id,
+                'created_at' => $lap->created_at,
+                'jumlah_data' => $lap->jumlah_data ?? '-',
+            ]),
+        ]);
+    }
+
+    /**
+     * Tampilkan data survei tertentu (untuk form edit - API)
      */
     public function show($id)
     {
