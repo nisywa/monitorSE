@@ -14,7 +14,7 @@ class SurveiController extends Controller
      */
     public function index()
     {
-        $surveis = Survei::with('pml')
+        $surveis = Survei::with(['pmls', 'laporan'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($survei) {
@@ -23,15 +23,23 @@ class SurveiController extends Controller
                     'nama_survei'      => $survei->nama_survei,
                     'tanggal_mulai'    => $survei->tanggal_mulai,
                     'tanggal_selesai'  => $survei->tanggal_selesai,
-                    'nama_pml'         => $survei->pml->nama_pml ?? '-',
-                    'pml_id'           => $survei->pml_id,
-                    'total_laporan'    => $survei->laporans()->count(),
+                    'nama_PML'         => $survei->pmls->pluck('nama_pml')->join(', ') ?? '-',
+                    'pml_ids'          => $survei->pmls->pluck('id')->toArray(),
+                    'total_laporan'    => $survei->laporan->count(),
                     'status'           => $this->getStatus($survei->tanggal_mulai, $survei->tanggal_selesai),
                 ];
             });
 
-        // Daftar PML untuk dropdown
-        $pmls = Pml::select('id', 'nama_pml')->orderBy('nama_pml')->get();
+        // Daftar PML untuk checkbox
+        $pmls = Pml::select('id', 'nama_pml')
+            ->orderBy('nama_pml')
+            ->get()
+            ->map(function ($pml) {
+                return [
+                    'id'        => $pml->id,
+                    'nama_PML'  => $pml->nama_pml,
+                ];
+            });
 
         return Inertia::render('Admin/ManajemenSurvei', [
             'surveis' => $surveis,
@@ -48,22 +56,26 @@ class SurveiController extends Controller
             'nama_survei'     => 'required|string|max:255',
             'tanggal_mulai'   => 'required|date',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'pml_id'          => 'required|exists:pmls,id',
+            'pml_ids'         => 'required|array|min:1',
+            'pml_ids.*'       => 'required|exists:pml,id',
         ], [
             'nama_survei.required'     => 'Nama survei wajib diisi.',
             'tanggal_mulai.required'   => 'Tanggal mulai wajib diisi.',
             'tanggal_selesai.required' => 'Tanggal selesai wajib diisi.',
             'tanggal_selesai.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
-            'pml_id.required'          => 'PML wajib dipilih.',
-            'pml_id.exists'            => 'PML tidak ditemukan.',
+            'pml_ids.required'         => 'Pilih minimal satu PML.',
+            'pml_ids.min'              => 'Pilih minimal satu PML.',
+            'pml_ids.*'                => 'PML tidak ditemukan.',
         ]);
 
-        Survei::create([
+        $survei = Survei::create([
             'nama_survei'     => $request->nama_survei,
             'tanggal_mulai'   => $request->tanggal_mulai,
             'tanggal_selesai' => $request->tanggal_selesai,
-            'pml_id'          => $request->pml_id,
         ]);
+
+        // Attach PML yang dipilih ke survei
+        $survei->pmls()->attach($request->pml_ids);
 
         return redirect()->back()->with('success', 'Survei berhasil ditambahkan.');
     }
@@ -73,14 +85,14 @@ class SurveiController extends Controller
      */
     public function show($id)
     {
-        $survei = Survei::with('pml')->findOrFail($id);
+        $survei = Survei::with('pmls')->findOrFail($id);
 
         return response()->json([
             'id'              => $survei->id,
             'nama_survei'     => $survei->nama_survei,
             'tanggal_mulai'   => $survei->tanggal_mulai,
             'tanggal_selesai' => $survei->tanggal_selesai,
-            'pml_id'          => $survei->pml_id,
+            'pml_ids'         => $survei->pmls->pluck('id')->toArray(),
         ]);
     }
 
@@ -95,21 +107,26 @@ class SurveiController extends Controller
             'nama_survei'     => 'required|string|max:255',
             'tanggal_mulai'   => 'required|date',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'pml_id'          => 'required|exists:pmls,id',
+            'pml_ids'         => 'required|array|min:1',
+            'pml_ids.*'       => 'required|exists:pml,id',
         ], [
             'nama_survei.required'     => 'Nama survei wajib diisi.',
             'tanggal_mulai.required'   => 'Tanggal mulai wajib diisi.',
             'tanggal_selesai.required' => 'Tanggal selesai wajib diisi.',
             'tanggal_selesai.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
-            'pml_id.required'          => 'PML wajib dipilih.',
+            'pml_ids.required'         => 'Pilih minimal satu PML.',
+            'pml_ids.min'              => 'Pilih minimal satu PML.',
+            'pml_ids.*'                => 'PML tidak ditemukan.',
         ]);
 
         $survei->update([
             'nama_survei'     => $request->nama_survei,
             'tanggal_mulai'   => $request->tanggal_mulai,
             'tanggal_selesai' => $request->tanggal_selesai,
-            'pml_id'          => $request->pml_id,
         ]);
+
+        // Update PML yang dipilih (sync = replace)
+        $survei->pmls()->sync($request->pml_ids);
 
         return redirect()->back()->with('success', 'Survei berhasil diperbarui.');
     }
@@ -122,12 +139,15 @@ class SurveiController extends Controller
         $survei = Survei::findOrFail($id);
 
         // Cek apakah ada laporan yang terkait
-        if ($survei->laporans()->count() > 0) {
+        if ($survei->laporan()->count() > 0) {
             return redirect()->back()->withErrors([
                 'error' => 'Survei tidak bisa dihapus karena masih memiliki laporan terkait.'
             ]);
         }
 
+        // Detach semua PML (karena Many-to-Many)
+        $survei->pmls()->detach();
+        
         $survei->delete();
 
         return redirect()->back()->with('success', 'Survei berhasil dihapus.');

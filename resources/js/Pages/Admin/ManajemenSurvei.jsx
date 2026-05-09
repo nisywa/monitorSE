@@ -14,18 +14,20 @@ export default function ManajemenSurvei({ surveis, pmls }) {
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [searchPml, setSearchPml] = useState('');
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama_survei: '',
         tanggal_mulai: '',
         tanggal_selesai: '',
-        pml_id: '',
+        pml_ids: [],
     });
 
     const openAdd = () => {
         setEditData(null);
         reset();
         clearErrors();
+        setSearchPml('');
         setShowModal(true);
     };
 
@@ -35,11 +37,24 @@ export default function ManajemenSurvei({ surveis, pmls }) {
             nama_survei: survei.nama_survei,
             tanggal_mulai: survei.tanggal_mulai,
             tanggal_selesai: survei.tanggal_selesai,
-            pml_id: String(survei.pml_id),
+            pml_ids: survei.pml_ids || [],
         });
         clearErrors();
+        setSearchPml('');
         setShowModal(true);
     };
+
+    const handlePmlChange = (pml_id) => {
+        setData('pml_ids', 
+            data.pml_ids.includes(pml_id)
+                ? data.pml_ids.filter(id => id !== pml_id)
+                : [...data.pml_ids, pml_id]
+        );
+    };
+
+    const filteredPmls = pmls?.filter(pml =>
+        pml.nama_PML.toLowerCase().includes(searchPml.toLowerCase())
+    ) ?? [];
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -172,7 +187,7 @@ export default function ManajemenSurvei({ surveis, pmls }) {
             </div>
 
             {/* Modal */}
-            <Modal show={showModal} onClose={() => setShowModal(false)} title={editData ? 'Edit Survei' : 'Tambah Survei Baru'}>
+            <Modal show={showModal} onClose={() => setShowModal(false)} title={editData ? 'Edit Survei' : 'Tambah Survei Baru'} maxWidth="lg">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nama Survei</label>
@@ -183,15 +198,50 @@ export default function ManajemenSurvei({ surveis, pmls }) {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">PML Penanggung Jawab</label>
-                        <select value={data.pml_id} onChange={e => setData('pml_id', e.target.value)}
-                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.pml_id ? 'border-red-300' : 'border-gray-200'}`}>
-                            <option value="">Pilih PML</option>
-                            {pmls?.map(pml => (
-                                <option key={pml.id} value={pml.id}>{pml.nama_PML}</option>
-                            ))}
-                        </select>
-                        {errors.pml_id && <p className="text-red-500 text-xs mt-1">{errors.pml_id}</p>}
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Pilih PML Penanggung Jawab</label>
+                        
+                        {/* Searchbar PML */}
+                        <div className="mb-3 relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Cari nama PML..."
+                                value={searchPml}
+                                onChange={e => setSearchPml(e.target.value)}
+                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Checkbox List */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
+                            {filteredPmls && filteredPmls.length > 0 ? (
+                                filteredPmls.map(pml => (
+                                    <label key={pml.id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.pml_ids.includes(pml.id)}
+                                            onChange={() => handlePmlChange(pml.id)}
+                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-gray-700">{pml.nama_PML}</span>
+                                    </label>
+                                ))
+                            ) : pmls && pmls.length > 0 ? (
+                                <p className="text-sm text-gray-500">Tidak ada PML yang cocok dengan pencarian</p>
+                            ) : (
+                                <p className="text-sm text-gray-500">Tidak ada data PML</p>
+                            )}
+                        </div>
+                        {errors.pml_ids && <p className="text-red-500 text-xs mt-1">{errors.pml_ids}</p>}
+                        {data.pml_ids.length > 0 && (
+                            <div className="mt-2 text-xs text-gray-600">
+                                Total PML dipilih: <strong>{data.pml_ids.length}</strong>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
