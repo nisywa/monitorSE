@@ -11,13 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('survei', function (Blueprint $table) {
+        Schema::create('pml_survei', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_survei');
-            $table->text('deskripsi')->nullable();
-            $table->date('tanggal_mulai');
-            $table->date('tanggal_selesai')->nullable();
+            $table->foreignId('pml_id')->constrained('pml')->onDelete('cascade');
+            $table->foreignId('survei_id')->constrained('survei')->onDelete('cascade');
             $table->timestamps();
+            
+            // Unique constraint untuk mencegah duplikasi
+            $table->unique(['pml_id', 'survei_id']);
         });
     }
 
@@ -26,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('survei');
+        Schema::dropIfExists('pml_survei');
     }
 };

@@ -9,7 +9,21 @@ class Laporan extends Model
     protected $table = 'laporan';
     protected $fillable = ['survei_id', 'pcl_id', 'pml_id', 'tanggal', 'data_usaha', 'data_keluarga', 'data_submit'];
 
-    public function survei() { return $this->belongsTo(Survei::class); }
-    public function pcl() { return $this->belongsTo(Pcl::class); }
-    public function pml() { return $this->belongsTo(Pml::class); }
+    // Many-to-One: Many Laporan : 1 Survei
+    public function survei()
+    {
+        return $this->belongsTo(Survei::class, 'survei_id');
+    }
+
+    // Many-to-One: Many Laporan : 1 PCL
+    public function pcl()
+    {
+        return $this->belongsTo(Pcl::class, 'pcl_id');
+    }
+
+    // Many-to-One: Many Laporan : 1 PML
+    public function pml()
+    {
+        return $this->belongsTo(Pml::class, 'pml_id');
+    }
 }
