@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Pml extends Model
 {
     protected $table = 'pml';
-    protected $fillable = ['user_id', 'nama_pml', 'tanggal_lahir'];
+    protected $fillable = ['user_id', 'nama_pml', 'tanggal_lahir', 'total_pcl'];
 
     // One-to-One: 1 PML : 1 User
     public function user()

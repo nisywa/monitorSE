@@ -16,7 +16,7 @@ class PmlController extends Controller
      */
     public function index()
     {
-        $pmls = Pml::with('user')
+        $pmls = Pml::with(['user', 'pcls'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($pml) {
@@ -25,7 +25,7 @@ class PmlController extends Controller
                     'nama_PML'      => $pml->nama_pml,
                     'tanggal_lahir' => $pml->tanggal_lahir,
                     'email'         => $pml->user->email ?? '-',
-                    'total_pcl'     => $pml->pcl()->count(),
+                    'total_pcl'     => $pml->pcls->count(),
                 ];
             });
 

@@ -1,14 +1,18 @@
 import { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 import Alert from '@/Components/Alert';
+import PopupWarning from '@/Components/PopupWarning';
 
 export default function ManajemenPML({ pmls }) {
+    const { flash } = usePage().props;
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
     const [deleteId, setDeleteId] = useState(null);
+    const [showWarning, setShowWarning] = useState(false);
+    const [warningMessage, setWarningMessage] = useState('');
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
@@ -43,9 +47,19 @@ export default function ManajemenPML({ pmls }) {
         }
     };
 
-    const handleDelete = (id) => {
-        if (confirm('Yakin ingin menghapus data PML ini? Semua data terkait juga akan dihapus.')) {
-            router.delete(`/manajemen-pml/${id}`);
+    const handleDelete = (pml) => {
+        // Cek apakah PML memiliki PCL
+        if (pml.total_pcl > 0) {
+            setWarningMessage(
+                `Anda tidak bisa menghapus data PML karena saat ini PML memiliki tanggung jawab terhadap ${pml.total_pcl} PCL.\n\nSilakan pindahkan semua PCL ke PML lain terlebih dahulu.`
+            );
+            setShowWarning(true);
+            return;
+        }
+
+        // Jika tidak ada PCL, tampilkan konfirmasi delete
+        if (confirm('Yakin ingin menghapus data PML ini?')) {
+            router.delete(`/manajemen-pml/${pml.id}`);
         }
     };
 
@@ -73,6 +87,10 @@ export default function ManajemenPML({ pmls }) {
                     Tambah PML
                 </button>
             </div>
+
+            {/* Alert Messages */}
+            {flash?.success && <Alert type="success" message={flash.success} />}
+            {flash?.error && <Alert type="error" message={flash.error} />}
 
             {/* Search */}
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
@@ -143,7 +161,7 @@ export default function ManajemenPML({ pmls }) {
                                                 Edit
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(pml.id)}
+                                                onClick={() => handleDelete(pml)}
                                                 className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
                                             >
                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,6 +247,15 @@ export default function ManajemenPML({ pmls }) {
                     </div>
                 </form>
             </Modal>
+
+            {/* Popup Warning untuk PML dengan PCL */}
+            <PopupWarning
+                show={showWarning}
+                type="warning"
+                title="Tidak Bisa Menghapus PML"
+                message={warningMessage}
+                onClose={() => setShowWarning(false)}
+            />
         </MainLayout>
     );
 }
