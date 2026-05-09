@@ -24,11 +24,17 @@ class DatabaseSeeder extends Seeder
     //     ]);
     // }
      {
-        User::create([
-            'nama'     => 'Administrator',
-            'email'    => 'admin@admin.com',
-            'password' => Hash::make('admin123'),
-            'role'     => 'admin',
-        ]);
+        // Buat admin jika belum ada
+        if (!User::where('email', 'admin@admin.com')->exists()) {
+            User::create([
+                'nama'     => 'Administrator',
+                'email'    => 'admin@admin.com',
+                'password' => Hash::make('admin123'),
+                'role'     => 'admin',
+            ]);
+        }
+
+        // Jalankan PmlSeeder untuk menambahkan 10 PML
+        $this->call(PmlSeeder::class);
     }
 }
