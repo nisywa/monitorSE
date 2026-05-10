@@ -10,6 +10,8 @@ const statusConfig = {
 
 export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
     const [selectedPml, setSelectedPml] = useState(null);
+    const [searchPml, setSearchPml] = useState('');
+    const [searchPcl, setSearchPcl] = useState('');
 
     const formatDate = (date) => {
         return new Date(date).toLocaleDateString('id-ID', {
@@ -20,17 +22,31 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
         });
     };
 
+    // Filter PML berdasarkan search
+    const filteredPmls = pmls?.filter(pml =>
+        pml.nama_pml.toLowerCase().includes(searchPml.toLowerCase()) ||
+        pml.user?.email.toLowerCase().includes(searchPml.toLowerCase())
+    ) ?? [];
+
     // Filter PCL berdasarkan PML yang dipilih
     const pclBySelectedPml = selectedPml 
         ? pcls?.filter(pcl => pcl.pml_id === selectedPml.id) ?? []
         : [];
 
+    // Filter PCL berdasarkan search
+    const filteredPcls = pclBySelectedPml.filter(pcl =>
+        pcl.nama_pcl.toLowerCase().includes(searchPcl.toLowerCase()) ||
+        pcl.user?.email.toLowerCase().includes(searchPcl.toLowerCase())
+    );
+
     const selectPml = (pml) => {
         setSelectedPml(pml);
+        setSearchPcl(''); // Reset PCL search ketika ganti PML
     };
 
     const clearSelection = () => {
         setSelectedPml(null);
+        setSearchPcl('');
     };
 
     return (
@@ -88,9 +104,34 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                 {/* PML Section (Left) */}
                 <div className="bg-white rounded-xl border border-gray-100 p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">PML Penanggung Jawab</h3>
+                    
+                    {/* Search PML */}
+                    <div className="mb-4 relative">
+                        <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Cari PML..."
+                            value={searchPml}
+                            onChange={(e) => setSearchPml(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {searchPml && (
+                            <button
+                                onClick={() => setSearchPml('')}
+                                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+
                     <div className="space-y-2">
-                        {pmls && pmls.length > 0 ? (
-                            pmls.map(pml => (
+                        {filteredPmls && filteredPmls.length > 0 ? (
+                            filteredPmls.map(pml => (
                                 <button
                                     key={pml.id}
                                     onClick={() => selectPml(pml)}
@@ -110,7 +151,9 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                 </button>
                             ))
                         ) : (
-                            <p className="text-gray-500 text-sm py-4">Tidak ada PML yang ditugaskan</p>
+                            <p className="text-gray-500 text-sm py-4 text-center">
+                                {searchPml ? 'Tidak ada PML yang cocok' : 'Tidak ada PML yang ditugaskan'}
+                            </p>
                         )}
                     </div>
                 </div>
@@ -135,49 +178,94 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                 Silakan memilih PML terlebih dahulu
                             </p>
                         </div>
-                    ) : pclBySelectedPml.length > 0 ? (
-                        <div className="space-y-2">
-                            <p className="text-xs text-gray-500 mb-3">
-                                Ditemukan {pclBySelectedPml.length} PCL
-                            </p>
-                            {pclBySelectedPml.map(pcl => (
-                                <Link
-                                    key={pcl.id}
-                                    href={`/manajemen-survei/${survei.id}/pcl/${pcl.id}/laporan`}
-                                    className="block bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
-                                >
-                                    <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
-                                    <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
-                                    <div className="text-xs text-purple-500 mt-2 flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                        Lihat Laporan
-                                    </div>
-                                </Link>
-                            ))}
-                            <button
-                                onClick={clearSelection}
-                                className="w-full mt-3 text-sm text-gray-600 hover:text-gray-800 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                            >
-                                Bersihkan Pilihan
-                            </button>
-                        </div>
                     ) : (
-                        <div className="text-center py-8">
-                            <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                            </svg>
-                            <p className="text-gray-500 text-sm mb-3">
-                                Tidak ada PCL untuk PML <strong>{selectedPml.nama_pml}</strong>
-                            </p>
-                            <button
-                                onClick={clearSelection}
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                                Pilih PML lain
-                            </button>
-                        </div>
+                        <>
+                            {/* Search PCL */}
+                            <div className="mb-4 relative">
+                                <svg className="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="Cari PCL..."
+                                    value={searchPcl}
+                                    onChange={(e) => setSearchPcl(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                />
+                                {searchPcl && (
+                                    <button
+                                        onClick={() => setSearchPcl('')}
+                                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+
+                            {pclBySelectedPml.length > 0 ? (
+                                filteredPcls.length > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-gray-500 mb-3">
+                                            Ditemukan {filteredPcls.length} dari {pclBySelectedPml.length} PCL
+                                        </p>
+                                        {filteredPcls.map(pcl => (
+                                            <Link
+                                                key={pcl.id}
+                                                href={`/manajemen-survei/${survei.id}/pcl/${pcl.id}/laporan`}
+                                                className="block bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
+                                            >
+                                                <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
+                                                <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
+                                                <div className="text-xs text-purple-500 mt-2 flex items-center gap-1">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                    Lihat Laporan
+                                                </div>
+                                            </Link>
+                                        ))}
+                                        <button
+                                            onClick={clearSelection}
+                                            className="w-full mt-3 text-sm text-gray-600 hover:text-gray-800 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                                        >
+                                            Bersihkan Pilihan
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8">
+                                        <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                        <p className="text-gray-500 text-sm mb-3">
+                                            Tidak ada PCL yang cocok dengan "{searchPcl}"
+                                        </p>
+                                        <button
+                                            onClick={() => setSearchPcl('')}
+                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                        >
+                                            Hapus filter pencarian
+                                        </button>
+                                    </div>
+                                )
+                            ) : (
+                                <div className="text-center py-8">
+                                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                    </svg>
+                                    <p className="text-gray-500 text-sm mb-3">
+                                        Tidak ada PCL untuk PML <strong>{selectedPml.nama_pml}</strong>
+                                    </p>
+                                    <button
+                                        onClick={clearSelection}
+                                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                    >
+                                        Pilih PML lain
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
