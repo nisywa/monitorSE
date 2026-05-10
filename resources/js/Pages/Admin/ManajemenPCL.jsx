@@ -3,7 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 
-export default function ManajemenPCL({ pcls, pmls }) {
+export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
@@ -11,7 +11,8 @@ export default function ManajemenPCL({ pcls, pmls }) {
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
         email: '',
-        pml_id: '',
+        pml_ids: [],
+        survei_ids: [],
         tanggal_lahir: '',
         asal_kecamatan: '',
         blok_sensus: '',
@@ -24,18 +25,25 @@ export default function ManajemenPCL({ pcls, pmls }) {
         setShowModal(true);
     };
 
-    const openEdit = (pcl) => {
+    const openEdit = async (pcl) => {
         setEditData(pcl);
-        setData({
-            nama: pcl.nama_PCL,
-            email: pcl.email,
-            pml_id: String(pcl.pml_id),
-            tanggal_lahir: pcl.tanggal_lahir,
-            asal_kecamatan: pcl.asal_kecamatan,
-            blok_sensus: pcl.blok_sensus,
-        });
-        clearErrors();
-        setShowModal(true);
+        try {
+            const response = await fetch(`/manajemen-pcl/${pcl.id}`);
+            const pclData = await response.json();
+            setData({
+                nama: pclData.nama_pcl,
+                email: pclData.email,
+                pml_ids: pclData.pml_ids || [],
+                survei_ids: pclData.survei_ids || [],
+                tanggal_lahir: pclData.tanggal_lahir,
+                asal_kecamatan: pclData.asal_kecamatan,
+                blok_sensus: pclData.blok_sensus,
+            });
+            clearErrors();
+            setShowModal(true);
+        } catch (error) {
+            console.error('Error loading PCL data:', error);
+        }
     };
 
     const handleSubmit = (e) => {
@@ -55,6 +63,20 @@ export default function ManajemenPCL({ pcls, pmls }) {
         if (confirm('Yakin ingin menghapus data PCL ini?')) {
             router.delete(`/manajemen-pcl/${id}`);
         }
+    };
+
+    const handlePmlChange = (pmlId) => {
+        const pmlIds = data.pml_ids.includes(pmlId)
+            ? data.pml_ids.filter(id => id !== pmlId)
+            : [...data.pml_ids, pmlId];
+        setData('pml_ids', pmlIds);
+    };
+
+    const handleSurveiChange = (surveiId) => {
+        const surveiIds = data.survei_ids.includes(surveiId)
+            ? data.survei_ids.filter(id => id !== surveiId)
+            : [...data.survei_ids, surveiId];
+        setData('survei_ids', surveiIds);
     };
 
     const filtered = pcls?.filter(p =>
@@ -111,8 +133,8 @@ export default function ManajemenPCL({ pcls, pmls }) {
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama PCL</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">PML</th>
+                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Survei</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Blok Sensus</th>
                                 <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
@@ -128,7 +150,7 @@ export default function ManajemenPCL({ pcls, pmls }) {
                                     <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
                                     <td className="px-5 py-3.5">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-semibold flex-shrink-0">
+                                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-semibold shrink-0">
                                                 {pcl.nama_PCL.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
@@ -139,12 +161,32 @@ export default function ManajemenPCL({ pcls, pmls }) {
                                     </td>
                                     <td className="px-5 py-3.5 text-gray-600">{pcl.email}</td>
                                     <td className="px-5 py-3.5">
-                                        <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                                            {pcl.nama_PML}
-                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {pcl.pmls?.length > 0 ? (
+                                                pcl.pmls.map(pml => (
+                                                    <span key={pml.id} className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                                                        {pml.nama_pml}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-5 py-3.5">
+                                        <div className="flex flex-wrap gap-1">
+                                            {pcl.surveis?.length > 0 ? (
+                                                pcl.surveis.map(s => (
+                                                    <span key={s.id} className="bg-purple-100 text-purple-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                                                        {s.nama_survei}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-5 py-3.5 text-gray-600">{pcl.asal_kecamatan}</td>
-                                    <td className="px-5 py-3.5 text-gray-600">{pcl.blok_sensus}</td>
                                     <td className="px-5 py-3.5 text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             <button onClick={() => openEdit(pcl)}
@@ -171,62 +213,96 @@ export default function ManajemenPCL({ pcls, pmls }) {
             </div>
 
             {/* Modal */}
-            <Modal show={showModal} onClose={() => setShowModal(false)} title={editData ? 'Edit Data PCL' : 'Tambah PCL Baru'} maxWidth="xl">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
-                            <input type="text" value={data.nama} onChange={e => setData('nama', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.nama ? 'border-red-300' : 'border-gray-200'}`}
-                                placeholder="Nama lengkap PCL" />
-                            {errors.nama && <p className="text-red-500 text-xs mt-1">{errors.nama}</p>}
-                        </div>
+            <Modal show={showModal} onClose={() => setShowModal(false)} title={editData ? 'Edit Data PCL' : 'Tambah PCL Baru'} maxWidth="2xl">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Basic Info */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-gray-700">Informasi Dasar</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                                <input type="text" value={data.nama} onChange={e => setData('nama', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.nama ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Nama lengkap PCL" />
+                                {errors.nama && <p className="text-red-500 text-xs mt-1">{errors.nama}</p>}
+                            </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" value={data.email} onChange={e => setData('email', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-200'}`}
-                                placeholder="Email" />
-                            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" value={data.email} onChange={e => setData('email', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Email" />
+                                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                            </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">PML</label>
-                            <select value={data.pml_id} onChange={e => setData('pml_id', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.pml_id ? 'border-red-300' : 'border-gray-200'}`}>
-                                <option value="">Pilih PML</option>
-                                {pmls?.map(pml => (
-                                    <option key={pml.id} value={pml.id}>{pml.nama_PML}</option>
-                                ))}
-                            </select>
-                            {errors.pml_id && <p className="text-red-500 text-xs mt-1">{errors.pml_id}</p>}
-                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</label>
+                                <input type="date" value={data.tanggal_lahir} onChange={e => setData('tanggal_lahir', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.tanggal_lahir ? 'border-red-300' : 'border-gray-200'}`} />
+                                {errors.tanggal_lahir && <p className="text-red-500 text-xs mt-1">{errors.tanggal_lahir}</p>}
+                            </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</label>
-                            <input type="date" value={data.tanggal_lahir} onChange={e => setData('tanggal_lahir', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.tanggal_lahir ? 'border-red-300' : 'border-gray-200'}`} />
-                            {errors.tanggal_lahir && <p className="text-red-500 text-xs mt-1">{errors.tanggal_lahir}</p>}
-                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Asal Kecamatan</label>
+                                <input type="text" value={data.asal_kecamatan} onChange={e => setData('asal_kecamatan', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.asal_kecamatan ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Nama kecamatan" />
+                                {errors.asal_kecamatan && <p className="text-red-500 text-xs mt-1">{errors.asal_kecamatan}</p>}
+                            </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Asal Kecamatan</label>
-                            <input type="text" value={data.asal_kecamatan} onChange={e => setData('asal_kecamatan', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.asal_kecamatan ? 'border-red-300' : 'border-gray-200'}`}
-                                placeholder="Nama kecamatan" />
-                            {errors.asal_kecamatan && <p className="text-red-500 text-xs mt-1">{errors.asal_kecamatan}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Blok Sensus</label>
-                            <input type="text" value={data.blok_sensus} onChange={e => setData('blok_sensus', e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.blok_sensus ? 'border-red-300' : 'border-gray-200'}`}
-                                placeholder="Kode blok sensus" />
-                            {errors.blok_sensus && <p className="text-red-500 text-xs mt-1">{errors.blok_sensus}</p>}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Blok Sensus</label>
+                                <input type="text" value={data.blok_sensus} onChange={e => setData('blok_sensus', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.blok_sensus ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Kode blok sensus" />
+                                {errors.blok_sensus && <p className="text-red-500 text-xs mt-1">{errors.blok_sensus}</p>}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-3 pt-2">
+                    {/* PML Selection */}
+                    <div className="space-y-3 border-t pt-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-3">Pilih PML (Multiple)</label>
+                            {errors.pml_ids && <p className="text-red-500 text-xs mb-2">{errors.pml_ids}</p>}
+                            <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                {pmls?.map(pml => (
+                                    <label key={pml.id} className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.pml_ids.includes(pml.id)}
+                                            onChange={() => handlePmlChange(pml.id)}
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-gray-700">{pml.nama_PML}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Survei Selection */}
+                    <div className="space-y-3 border-t pt-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-3">Pilih Survei (Multiple)</label>
+                            {errors.survei_ids && <p className="text-red-500 text-xs mb-2">{errors.survei_ids}</p>}
+                            <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                {surveis?.map(survei => (
+                                    <label key={survei.id} className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.survei_ids.includes(survei.id)}
+                                            onChange={() => handleSurveiChange(survei.id)}
+                                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                        />
+                                        <span className="text-sm text-gray-700">{survei.nama_survei}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t">
                         <button type="button" onClick={() => setShowModal(false)}
                             className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
                             Batal

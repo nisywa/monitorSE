@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Pcl extends Model
 {
     protected $table = 'pcl';
-    protected $fillable = ['user_id', 'pml_id', 'nama_pcl', 'tanggal_lahir', 'asal_kecamatan', 'blok_sensus'];
+    protected $fillable = ['user_id', 'nama_pcl', 'tanggal_lahir', 'asal_kecamatan', 'blok_sensus'];
 
     // One-to-One: 1 PCL : 1 User
     public function user()
@@ -15,10 +15,10 @@ class Pcl extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // Many-to-One: Many PCL : 1 PML
-    public function pml()
+    // Many-to-Many: Many PCL : Many PML (melalui pivot table pcl_pml)
+    public function pmls()
     {
-        return $this->belongsTo(Pml::class, 'pml_id');
+        return $this->belongsToMany(Pml::class, 'pcl_pml', 'pcl_id', 'pml_id')->withTimestamps();
     }
 
     // Many-to-Many: 1 PCL : Many Survei

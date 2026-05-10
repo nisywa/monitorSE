@@ -15,10 +15,10 @@ class Pml extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // One-to-Many: 1 PML : Many PCL
+    // Many-to-Many: Many PML : Many PCL (melalui pivot table pcl_pml)
     public function pcls()
     {
-        return $this->hasMany(Pcl::class, 'pml_id');
+        return $this->belongsToMany(Pcl::class, 'pcl_pml', 'pml_id', 'pcl_id')->withTimestamps();
     }
 
     // Many-to-Many: 1 PML : Many Survei
