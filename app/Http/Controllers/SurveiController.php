@@ -89,11 +89,8 @@ class SurveiController extends Controller
         $survei = Survei::findOrFail($id);
         $pmls = $survei->pmls()->get();
         
-        // Ambil semua PCL yang dimiliki oleh PML yang ditugaskan ke survei
-        $pmlIds = $pmls->pluck('id')->toArray();
-        $pcls = Pcl::whereIn('pml_id', $pmlIds)
-            ->with('user', 'pml')
-            ->get();
+        // Ambil semua PCL yang terkait dengan survei (melalui pcl_survei pivot table)
+        $pcls = $survei->pcls()->with('user', 'pmls')->get();
         
         $laporan = $survei->laporan()->get();
 
@@ -115,14 +112,14 @@ class SurveiController extends Controller
             'pcls' => $pcls->map(fn($pcl) => [
                 'id' => $pcl->id,
                 'nama_pcl' => $pcl->nama_pcl,
-                'pml_id' => $pcl->pml_id,
+                'pml_ids' => $pcl->pmls->pluck('id')->toArray(),
                 'user' => [
                     'email' => $pcl->user->email,
                 ],
-                'pml' => [
-                    'id' => $pcl->pml->id,
-                    'nama_pml' => $pcl->pml->nama_pml,
-                ],
+                'pmls' => $pcl->pmls->map(fn($pml) => [
+                    'id' => $pml->id,
+                    'nama_pml' => $pml->nama_pml,
+                ]),
             ]),
             'laporan' => $laporan->map(fn($lap) => [
                 'id' => $lap->id,
@@ -211,7 +208,7 @@ class SurveiController extends Controller
     public function laporanPcl($surveiId, $pclId)
     {
         $survei = Survei::findOrFail($surveiId);
-        $pcl = Pcl::with('user', 'pml')->findOrFail($pclId);
+        $pcl = Pcl::with('user', 'pmls')->findOrFail($pclId);
         
         // Ambil laporan PCL untuk survei ini
         $laporan = $pcl->laporan()
@@ -230,9 +227,10 @@ class SurveiController extends Controller
                 'user' => [
                     'email' => $pcl->user->email,
                 ],
-                'pml' => [
-                    'nama_pml' => $pcl->pml->nama_pml,
-                ],
+                'pmls' => $pcl->pmls->map(fn($pml) => [
+                    'id' => $pml->id,
+                    'nama_pml' => $pml->nama_pml,
+                ])->toArray(),
             ],
             'laporan' => $laporan->map(fn($lap) => [
                 'id' => $lap->id,

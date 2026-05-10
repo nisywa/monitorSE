@@ -49,7 +49,17 @@ export default function LaporanPcl({ pcl, survei, laporan }) {
                 {/* PML Penanggung Jawab */}
                 <div className="bg-white rounded-xl border border-gray-100 p-5">
                     <div className="text-xs text-gray-500 font-medium uppercase mb-2">PML Penanggung Jawab</div>
-                    <div className="text-sm font-semibold text-gray-800">{pcl.pml?.nama_pml}</div>
+                    {pcl.pmls && pcl.pmls.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {pcl.pmls.map(pml => (
+                                <span key={pml.id} className="bg-purple-100 text-purple-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                                    {pml.nama_pml}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-500">-</div>
+                    )}
                 </div>
 
                 {/* Total Laporan */}

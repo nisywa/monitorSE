@@ -30,7 +30,7 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
 
     // Filter PCL berdasarkan PML yang dipilih
     const pclBySelectedPml = selectedPml 
-        ? pcls?.filter(pcl => pcl.pml_id === selectedPml.id) ?? []
+        ? pcls?.filter(pcl => pcl.pml_ids?.includes(selectedPml.id)) ?? []
         : [];
 
     // Filter PCL berdasarkan search
@@ -218,6 +218,15 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                             >
                                                 <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
                                                 <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
+                                                {pcl.pmls?.length > 0 && (
+                                                    <div className="text-xs text-purple-500 mt-2 flex flex-wrap gap-1">
+                                                        {pcl.pmls.map(pml => (
+                                                            <span key={pml.id} className="bg-purple-200 px-2 py-0.5 rounded">
+                                                                {pml.nama_pml}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                                 <div className="text-xs text-purple-500 mt-2 flex items-center gap-1">
                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
