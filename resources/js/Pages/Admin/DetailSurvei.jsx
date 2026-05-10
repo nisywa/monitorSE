@@ -9,7 +9,6 @@ const statusConfig = {
 };
 
 export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
-    const [showModalPml, setShowModalPml] = useState(false);
     const [selectedPml, setSelectedPml] = useState(null);
 
     const formatDate = (date) => {
@@ -26,13 +25,11 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
         ? pcls?.filter(pcl => pcl.pml_id === selectedPml.id) ?? []
         : [];
 
-    const openPmlDetail = (pml) => {
+    const selectPml = (pml) => {
         setSelectedPml(pml);
-        setShowModalPml(true);
     };
 
-    const closePmlModal = () => {
-        setShowModalPml(false);
+    const clearSelection = () => {
         setSelectedPml(null);
     };
 
@@ -96,8 +93,12 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                             pmls.map(pml => (
                                 <button
                                     key={pml.id}
-                                    onClick={() => openPmlDetail(pml)}
-                                    className="w-full text-left bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer group"
+                                    onClick={() => selectPml(pml)}
+                                    className={`w-full text-left rounded-lg px-4 py-3 transition-colors cursor-pointer group ${
+                                        selectedPml?.id === pml.id
+                                            ? 'bg-blue-200 border-2 border-blue-500'
+                                            : 'bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                    }`}
                                 >
                                     <div className="font-medium text-blue-900 group-hover:text-blue-800 flex items-center justify-between">
                                         <span>{pml.nama_pml}</span>
@@ -118,63 +119,65 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                 <div className="bg-white rounded-xl border border-gray-100 p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
                         PCL (Petugas Koleksi Lapangan)
-                        {selectedPml && pclBySelectedPml.length > 0 && (
+                        {selectedPml && (
                             <span className="text-sm font-normal text-gray-500 ml-2">
-                                ({pclBySelectedPml.length}) - Dari: {selectedPml.nama_pml}
+                                - Dari: {selectedPml.nama_pml}
                             </span>
                         )}
                     </h3>
-                    {pcls && pcls.length > 0 ? (
-                        <>
-                            <div className="space-y-2 max-h-96 overflow-y-auto">
-                                {(selectedPml && pclBySelectedPml.length > 0 ? pclBySelectedPml : pcls).map(pcl => (
-                                    <Link
-                                        key={pcl.id}
-                                        href={`/manajemen-survei/${survei.id}/pcl/${pcl.id}/laporan`}
-                                        className={`block rounded-lg px-4 py-3 transition-colors cursor-pointer ${
-                                            selectedPml && selectedPml.id === pcl.pml_id
-                                                ? 'bg-purple-100 border border-purple-400 hover:bg-purple-200'
-                                                : 'bg-purple-50 border border-purple-200 hover:bg-purple-100 hover:border-purple-300'
-                                        }`}
-                                    >
-                                        <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
-                                        <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
-                                        <div className="text-xs text-purple-500 mt-1">
-                                            PML: <span className="font-medium">{pcl.pml?.nama_pml}</span>
-                                        </div>
-                                        <div className="text-xs text-purple-500 mt-2 flex items-center gap-1">
-                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                            </svg>
-                                            Lihat Laporan
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                            {selectedPml && pclBySelectedPml.length > 0 && (
-                                <button
-                                    onClick={closePmlModal}
-                                    className="w-full mt-3 text-sm text-gray-600 hover:text-gray-800 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                    
+                    {!selectedPml ? (
+                        <div className="text-center py-12">
+                            <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p className="text-gray-500 text-sm">
+                                Silakan memilih PML terlebih dahulu
+                            </p>
+                        </div>
+                    ) : pclBySelectedPml.length > 0 ? (
+                        <div className="space-y-2">
+                            <p className="text-xs text-gray-500 mb-3">
+                                Ditemukan {pclBySelectedPml.length} PCL
+                            </p>
+                            {pclBySelectedPml.map(pcl => (
+                                <Link
+                                    key={pcl.id}
+                                    href={`/manajemen-survei/${survei.id}/pcl/${pcl.id}/laporan`}
+                                    className="block bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
                                 >
-                                    Tampilkan Semua PCL
-                                </button>
-                            )}
-                            {selectedPml && pclBySelectedPml.length === 0 && (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-500 text-sm">
-                                        Tidak ada PCL yang ditugaskan untuk <strong>{selectedPml.nama_pml}</strong>
-                                    </p>
-                                    <button
-                                        onClick={closePmlModal}
-                                        className="w-full mt-3 text-sm text-gray-600 hover:text-gray-800 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                                    >
-                                        Tampilkan Semua PCL
-                                    </button>
-                                </div>
-                            )}
-                        </>
+                                    <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
+                                    <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
+                                    <div className="text-xs text-purple-500 mt-2 flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                        Lihat Laporan
+                                    </div>
+                                </Link>
+                            ))}
+                            <button
+                                onClick={clearSelection}
+                                className="w-full mt-3 text-sm text-gray-600 hover:text-gray-800 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                            >
+                                Bersihkan Pilihan
+                            </button>
+                        </div>
                     ) : (
-                        <p className="text-gray-500 text-sm py-4">Tidak ada PCL yang ditugaskan untuk survei ini</p>
+                        <div className="text-center py-8">
+                            <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <p className="text-gray-500 text-sm mb-3">
+                                Tidak ada PCL untuk PML <strong>{selectedPml.nama_pml}</strong>
+                            </p>
+                            <button
+                                onClick={clearSelection}
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                                Pilih PML lain
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -214,66 +217,6 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                 )}
             </div>
 
-            {/* Modal Daftar PCL untuk PML */}
-            {showModalPml && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-800">PCL dari {selectedPml?.nama_pml}</h3>
-                                <p className="text-xs text-gray-500 mt-1">{selectedPml?.user?.email}</p>
-                            </div>
-                            <button
-                                onClick={closePmlModal}
-                                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        {/* Modal Content */}
-                        <div className="px-6 py-4 max-h-96 overflow-y-auto">
-                            {pclBySelectedPml && pclBySelectedPml.length > 0 ? (
-                                <div className="space-y-2">
-                                    <p className="text-xs text-gray-500 mb-3">
-                                        Ditemukan {pclBySelectedPml.length} PCL
-                                    </p>
-                                    {pclBySelectedPml.map(pcl => (
-                                        <div key={pcl.id} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                                            <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
-                                            <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
-                                            <Link
-                                                href={`/manajemen-survei/${survei.id}/pcl/${pcl.id}/laporan`}
-                                                className="text-xs text-purple-500 hover:text-purple-700 mt-2 flex items-center gap-1 font-medium"
-                                            >
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                </svg>
-                                                Lihat Laporan
-                                            </Link>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 text-sm text-center py-8">
-                                    Tidak ada PCL yang ditugaskan untuk PML ini
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-                            <button
-                                onClick={closePmlModal}
-                                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium py-2 rounded-lg transition-colors"
-                            >
-                                Tutup
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </MainLayout>
     );
 }
