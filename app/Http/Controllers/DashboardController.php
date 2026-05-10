@@ -29,10 +29,17 @@ class DashboardController extends Controller
             ];
         } elseif ($user->role === 'PML') {
             $pml = $user->pml;
+            // Hitung PCL yang terhubung dengan PML ini melalui relasi many-to-many
+            $totalPcl = $pml->pcls()->count();
+            // Hitung survei yang terhubung dengan PML ini melalui relasi many-to-many
+            $totalSurvei = $pml->surveis()->count();
+            // Hitung laporan milik PML ini
+            $totalLaporan = Laporan::where('pml_id', $pml->id)->count();
+            
             $stats = [
-                'total_pcl'     => Pcl::where('pml_id', $pml->id)->count(),
-                'total_survei'  => Survei::where('pml_id', $pml->id)->count(),
-                'total_laporan' => Laporan::where('pml_id', $pml->id)->count(),
+                'total_pcl'     => $totalPcl,
+                'total_survei'  => $totalSurvei,
+                'total_laporan' => $totalLaporan,
             ];
         } elseif ($user->role === 'PCL') {
             $pcl = $user->pcl;

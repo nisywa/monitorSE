@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Inertia\Inertia;
 use App\Models\Laporan;
 use App\Models\Survei;
@@ -12,6 +13,7 @@ use App\Models\Pml;
 
 class LaporanController extends Controller
 {
+    use AuthorizesRequests;
     /**
      * Tampilkan list laporan sesuai role
      * - Admin : semua laporan
@@ -53,8 +55,9 @@ class LaporanController extends Controller
         $surveis = [];
         if ($user->role === 'PCL') {
             $pcl     = $user->pcl;
-            $surveis = Survei::where('pml_id', $pcl->pml_id)
-                ->select('id', 'nama_survei')
+            // Ambil survei yang terhubung dengan PCL ini melalui relasi many-to-many
+            $surveis = $pcl->surveis()
+                ->select('survei.id', 'survei.nama_survei')
                 ->get();
         } elseif ($user->role === 'admin') {
             $surveis = Survei::select('id', 'nama_survei')->get();
@@ -78,7 +81,7 @@ class LaporanController extends Controller
         $pcl  = $user->pcl;
 
         $request->validate([
-            'survei_id'    => 'required|exists:surveis,id',
+            'survei_id'    => 'required|exists:survei,id',
             'tanggal'      => 'required|date',
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
@@ -92,13 +95,33 @@ class LaporanController extends Controller
             'data_keluarga.integer'  => 'Data keluarga harus berupa angka.',
         ]);
 
-        // Ambil survei untuk mendapatkan pml_id
+        // Ambil survei
         $survei = Survei::findOrFail($request->survei_id);
+        
+        // Tentukan pml_id berdasarkan role
+        $pmlId = null;
+        
+        if ($user->role === 'PCL' && $pcl) {
+            // Untuk PCL: Ambil PML pertama yang terhubung dengan PCL ini
+            // (PCL bisa memiliki banyak PML)
+            $pmlId = $pcl->pmls()->first()?->id;
+            
+            if (!$pmlId) {
+                return redirect()->back()->with('error', 'PCL Anda tidak terhubung dengan PML manapun.');
+            }
+        } elseif ($user->role === 'admin') {
+            // Untuk admin: Ambil PML pertama dari survei
+            $pmlId = $survei->pmls()->first()?->id;
+            
+            if (!$pmlId) {
+                return redirect()->back()->with('error', 'Survei ini tidak terhubung dengan PML manapun.');
+            }
+        }
 
         Laporan::create([
             'survei_id'    => $request->survei_id,
-            'pcl_id'       => $pcl->id,
-            'pml_id'       => $survei->pml_id,
+            'pcl_id'       => $pcl?->id,
+            'pml_id'       => $pmlId,
             'tanggal'      => $request->tanggal,
             'data_usaha'   => $request->data_usaha,
             'data_keluarga'=> $request->data_keluarga,
