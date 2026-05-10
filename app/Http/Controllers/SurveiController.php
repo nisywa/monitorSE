@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Survei;
 use App\Models\Pml;
+use App\Models\Pcl;
 
 class SurveiController extends Controller
 {
@@ -87,7 +88,13 @@ class SurveiController extends Controller
     {
         $survei = Survei::findOrFail($id);
         $pmls = $survei->pmls()->get();
-        $pcls = $survei->pcls()->with('user', 'pml')->get();
+        
+        // Ambil semua PCL yang dimiliki oleh PML yang ditugaskan ke survei
+        $pmlIds = $pmls->pluck('id')->toArray();
+        $pcls = Pcl::whereIn('pml_id', $pmlIds)
+            ->with('user', 'pml')
+            ->get();
+        
         $laporan = $survei->laporan()->get();
 
         return Inertia::render('Admin/DetailSurvei', [
@@ -108,10 +115,12 @@ class SurveiController extends Controller
             'pcls' => $pcls->map(fn($pcl) => [
                 'id' => $pcl->id,
                 'nama_pcl' => $pcl->nama_pcl,
+                'pml_id' => $pcl->pml_id,
                 'user' => [
                     'email' => $pcl->user->email,
                 ],
                 'pml' => [
+                    'id' => $pcl->pml->id,
                     'nama_pml' => $pcl->pml->nama_pml,
                 ],
             ]),
@@ -194,6 +203,44 @@ class SurveiController extends Controller
         $survei->delete();
 
         return redirect()->back()->with('success', 'Survei berhasil dihapus.');
+    }
+
+    /**
+     * Tampilkan laporan PCL untuk survei tertentu
+     */
+    public function laporanPcl($surveiId, $pclId)
+    {
+        $survei = Survei::findOrFail($surveiId);
+        $pcl = Pcl::with('user', 'pml')->findOrFail($pclId);
+        
+        // Ambil laporan PCL untuk survei ini
+        $laporan = $pcl->laporan()
+            ->where('survei_id', $surveiId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return Inertia::render('Admin/LaporanPcl', [
+            'survei' => [
+                'id' => $survei->id,
+                'nama_survei' => $survei->nama_survei,
+            ],
+            'pcl' => [
+                'id' => $pcl->id,
+                'nama_pcl' => $pcl->nama_pcl,
+                'user' => [
+                    'email' => $pcl->user->email,
+                ],
+                'pml' => [
+                    'nama_pml' => $pcl->pml->nama_pml,
+                ],
+            ],
+            'laporan' => $laporan->map(fn($lap) => [
+                'id' => $lap->id,
+                'created_at' => $lap->created_at,
+                'jumlah_data' => $lap->jumlah_data ?? '-',
+                'catatan' => $lap->catatan ?? '-',
+            ]),
+        ]);
     }
 
     /**
