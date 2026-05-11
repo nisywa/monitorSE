@@ -16,19 +16,35 @@ class LaporanPolicy
     }
 
     /**
-     * Hanya PML yang bisa update laporan
+     * PML atau PCL pemilik laporan dapat update laporan
      */
     public function update(User $user, Laporan $laporan = null): bool
     {
-        return $user->role === 'PML';
+        if ($user->role === 'PML') {
+            return true;
+        }
+
+        if ($user->role === 'PCL' && $laporan) {
+            return $laporan->pcl_id === $user->pcl?->id;
+        }
+
+        return false;
     }
 
     /**
-     * Hanya PML yang bisa hapus laporan
+     * PML atau PCL pemilik laporan dapat hapus laporan
      */
     public function delete(User $user, Laporan $laporan = null): bool
     {
-        return $user->role === 'PML';
+        if ($user->role === 'PML') {
+            return true;
+        }
+
+        if ($user->role === 'PCL' && $laporan) {
+            return $laporan->pcl_id === $user->pcl?->id;
+        }
+
+        return false;
     }
 
     /**

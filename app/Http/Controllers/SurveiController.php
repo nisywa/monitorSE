@@ -124,7 +124,8 @@ class SurveiController extends Controller
             'laporan' => $laporan->map(fn($lap) => [
                 'id' => $lap->id,
                 'created_at' => $lap->created_at,
-                'jumlah_data' => $lap->jumlah_data ?? '-',
+                'data_usaha' => $lap->data_usaha ?? '-',
+                'data_keluarga' => $lap->data_keluarga ?? '-',
             ]),
         ]);
     }
@@ -235,8 +236,8 @@ class SurveiController extends Controller
             'laporan' => $laporan->map(fn($lap) => [
                 'id' => $lap->id,
                 'created_at' => $lap->created_at,
-                'jumlah_data' => $lap->jumlah_data ?? '-',
-                'catatan' => $lap->catatan ?? '-',
+                'data_usaha' => $lap->data_usaha ?? '-',
+                'data_keluarga' => $lap->data_keluarga ?? '-',
             ]),
         ]);
     }

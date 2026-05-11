@@ -35,13 +35,14 @@ class PclController extends Controller
             });
 
         // Ambil daftar PML untuk dropdown
-        $pmls = Pml::select('id', 'nama_pml')
+        $pmls = Pml::with('surveis')->select('id', 'nama_pml')
             ->orderBy('nama_pml')
             ->get()
             ->map(function ($pml) {
                 return [
                     'id'        => $pml->id,
                     'nama_PML'  => $pml->nama_pml,
+                    'survei_ids' => $pml->surveis->pluck('id')->toArray(),
                 ];
             });
 
@@ -71,10 +72,8 @@ class PclController extends Controller
         $request->validate([
             'nama'           => 'required|string|max:255',
             'email'          => 'required|email|unique:users,email',
-            'pml_ids'        => 'required|array|min:1',
-            'pml_ids.*'      => 'exists:pml,id',
-            'survei_ids'     => 'required|array|min:1',
-            'survei_ids.*'   => 'exists:survei,id',
+            'pml_id'         => 'required|exists:pml,id',
+            'survei_id'      => 'required|exists:survei,id',
             'tanggal_lahir'  => 'required|date',
             'asal_kecamatan' => 'required|string|max:255',
             'blok_sensus'    => 'required|string|max:255',
@@ -82,12 +81,10 @@ class PclController extends Controller
             'nama.required'           => 'Nama PCL wajib diisi.',
             'email.required'          => 'Email wajib diisi.',
             'email.unique'            => 'Email sudah digunakan.',
-            'pml_ids.required'        => 'PML wajib dipilih minimal satu.',
-            'pml_ids.min'             => 'PML wajib dipilih minimal satu.',
-            'pml_ids.*.exists'        => 'Salah satu PML tidak ditemukan.',
-            'survei_ids.required'     => 'Survei wajib dipilih minimal satu.',
-            'survei_ids.min'          => 'Survei wajib dipilih minimal satu.',
-            'survei_ids.*.exists'     => 'Salah satu Survei tidak ditemukan.',
+            'pml_id.required'         => 'PML wajib dipilih.',
+            'pml_id.exists'           => 'PML tidak ditemukan.',
+            'survei_id.required'      => 'Survei wajib dipilih.',
+            'survei_id.exists'        => 'Survei tidak ditemukan.',
             'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
             'asal_kecamatan.required' => 'Asal kecamatan wajib diisi.',
             'blok_sensus.required'    => 'Blok sensus wajib diisi.',
@@ -114,11 +111,11 @@ class PclController extends Controller
                 'blok_sensus'    => $request->blok_sensus,
             ]);
 
-            // Tambahkan relasi many-to-many dengan PML
-            $pcl->pmls()->attach($request->pml_ids);
+            // Tambahkan relasi dengan PML
+            $pcl->pmls()->attach($request->pml_id);
 
-            // Tambahkan relasi many-to-many dengan Survei
-            $pcl->surveis()->attach($request->survei_ids);
+            // Tambahkan relasi dengan Survei
+            $pcl->surveis()->attach($request->survei_id);
         });
 
         return redirect()->back()->with('success', "Data PCL berhasil ditambahkan. Password default: {$generatedPassword}");
@@ -137,8 +134,8 @@ class PclController extends Controller
             'tanggal_lahir'  => $pcl->tanggal_lahir,
             'asal_kecamatan' => $pcl->asal_kecamatan,
             'blok_sensus'    => $pcl->blok_sensus,
-            'pml_ids'        => $pcl->pmls->pluck('id')->toArray(),
-            'survei_ids'     => $pcl->surveis->pluck('id')->toArray(),
+            'pml_id'         => $pcl->pmls->first()?->id,
+            'survei_id'      => $pcl->surveis->first()?->id,
             'email'          => $pcl->user->email,
         ]);
     }
@@ -153,10 +150,8 @@ class PclController extends Controller
         $request->validate([
             'nama'           => 'required|string|max:255',
             'email'          => 'required|email|unique:users,email,' . $pcl->user->id,
-            'pml_ids'        => 'required|array|min:1',
-            'pml_ids.*'      => 'exists:pml,id',
-            'survei_ids'     => 'required|array|min:1',
-            'survei_ids.*'   => 'exists:survei,id',
+            'pml_id'         => 'required|exists:pml,id',
+            'survei_id'      => 'required|exists:survei,id',
             'tanggal_lahir'  => 'required|date',
             'asal_kecamatan' => 'required|string|max:255',
             'blok_sensus'    => 'required|string|max:255',
@@ -165,12 +160,10 @@ class PclController extends Controller
             'nama.required'           => 'Nama PCL wajib diisi.',
             'email.required'          => 'Email wajib diisi.',
             'email.unique'            => 'Email sudah digunakan.',
-            'pml_ids.required'        => 'PML wajib dipilih minimal satu.',
-            'pml_ids.min'             => 'PML wajib dipilih minimal satu.',
-            'pml_ids.*.exists'        => 'Salah satu PML tidak ditemukan.',
-            'survei_ids.required'     => 'Survei wajib dipilih minimal satu.',
-            'survei_ids.min'          => 'Survei wajib dipilih minimal satu.',
-            'survei_ids.*.exists'     => 'Salah satu Survei tidak ditemukan.',
+            'pml_id.required'         => 'PML wajib dipilih.',
+            'pml_id.exists'           => 'PML tidak ditemukan.',
+            'survei_id.required'      => 'Survei wajib dipilih.',
+            'survei_id.exists'        => 'Survei tidak ditemukan.',
             'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
             'asal_kecamatan.required' => 'Asal kecamatan wajib diisi.',
             'blok_sensus.required'    => 'Blok sensus wajib diisi.',
@@ -197,10 +190,10 @@ class PclController extends Controller
             ]);
 
             // Update relasi dengan PML (sync untuk replace)
-            $pcl->pmls()->sync($request->pml_ids);
+            $pcl->pmls()->sync([$request->pml_id]);
 
             // Update relasi dengan Survei (sync untuk replace)
-            $pcl->surveis()->sync($request->survei_ids);
+            $pcl->surveis()->sync([$request->survei_id]);
         });
 
         return redirect()->back()->with('success', 'Data PCL berhasil diperbarui.');

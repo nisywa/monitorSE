@@ -80,8 +80,8 @@ export default function LaporanPcl({ pcl, survei, laporan }) {
                             <tr className="bg-gray-50 border-b border-gray-100">
                                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
                                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Dibuat</th>
-                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Data</th>
-                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Catatan</th>
+                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Usaha</th>
+                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Keluarga</th>
                                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                             </tr>
                         </thead>
@@ -91,8 +91,8 @@ export default function LaporanPcl({ pcl, survei, laporan }) {
                                     <tr key={lap.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-3.5 text-gray-400">{i + 1}</td>
                                         <td className="px-6 py-3.5 text-gray-600">{formatDate(lap.created_at)}</td>
-                                        <td className="px-6 py-3.5 font-medium text-gray-800">{lap.jumlah_data || '-'}</td>
-                                        <td className="px-6 py-3.5 text-gray-600 text-xs">{lap.catatan || '-'}</td>
+                                        <td className="px-6 py-3.5 font-medium text-gray-800">{lap.data_usaha || '-'}</td>
+                                        <td className="px-6 py-3.5 font-medium text-gray-800">{lap.data_keluarga || '-'}</td>
                                         <td className="px-6 py-3.5">
                                             <span className="bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
                                                 Tersimpan

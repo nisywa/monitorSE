@@ -67,13 +67,13 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">{survei.nama_survei}</h2>
                 </div>
-                <Link href={`/manajemen-survei/${survei.id}/edit`}
+                {/* <Link href={`/manajemen-survei/${survei.id}/edit`}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Edit
-                </Link>
+                </Link> */}
             </div>
 
             {/* Info Cards */}
@@ -217,9 +217,9 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                                 className="block bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
                                             >
                                                 <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
-                                                <div className="text-xs text-purple-600 mt-1">{pcl.user?.email}</div>
+                                                <div className="text-xs mt-1">{pcl.user?.email}</div>
                                                 {pcl.pmls?.length > 0 && (
-                                                    <div className="text-xs text-purple-500 mt-2 flex flex-wrap gap-1">
+                                                    <div className="text-xs mt-2 flex flex-wrap gap-1">
                                                         {pcl.pmls.map(pml => (
                                                             <span key={pml.id} className="bg-purple-200 px-2 py-0.5 rounded">
                                                                 {pml.nama_pml}
@@ -227,7 +227,7 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                                         ))}
                                                     </div>
                                                 )}
-                                                <div className="text-xs text-purple-500 mt-2 flex items-center gap-1">
+                                                <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                     </svg>
@@ -289,7 +289,8 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">No</th>
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tanggal</th>
-                                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Total Data</th>
+                                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Total Usaha</th>
+                                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Total Keluarga</th>
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                                 </tr>
                             </thead>
@@ -298,7 +299,8 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                     <tr key={lap.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 text-gray-400">{i + 1}</td>
                                         <td className="px-4 py-3 text-gray-600">{new Date(lap.created_at).toLocaleDateString('id-ID')}</td>
-                                        <td className="px-4 py-3 font-medium text-gray-800">{lap.jumlah_data || '-'}</td>
+                                        <td className="px-4 py-3 font-medium text-gray-800">{lap.data_usaha || '-'}</td>
+                                        <td className="px-4 py-3 font-medium text-gray-800">{lap.data_keluarga || '-'}</td>
                                         <td className="px-4 py-3">
                                             <span className="bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
                                                 Tersimpan

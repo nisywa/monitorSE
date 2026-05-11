@@ -11,12 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('survei', function (Blueprint $table) {
-            // Hapus foreign key constraint terlebih dahulu
-            $table->dropForeign(['pml_id']);
-            // Kemudian hapus kolom pml_id
-            $table->dropColumn('pml_id');
-        });
+        if (Schema::hasColumn('survei', 'pml_id')) {
+            Schema::table('survei', function (Blueprint $table) {
+                // Hapus foreign key constraint terlebih dahulu
+                $table->dropForeign(['pml_id']);
+                // Kemudian hapus kolom pml_id
+                $table->dropColumn('pml_id');
+            });
+        }
     }
 
     /**
@@ -24,8 +26,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('survei', function (Blueprint $table) {
-            $table->foreignId('pml_id')->constrained('pml')->onDelete('cascade')->nullable();
-        });
+        if (! Schema::hasColumn('survei', 'pml_id')) {
+            Schema::table('survei', function (Blueprint $table) {
+                $table->foreignId('pml_id')->nullable()->constrained('pml')->onDelete('cascade');
+            });
+        }
     }
 };
