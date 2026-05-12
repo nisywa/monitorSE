@@ -39,6 +39,7 @@ class PclController extends Controller
                 'nama_survei'    => '-',
                 'pml_id'         => null,
                 'nama_pml'       => '-',
+                'created_at'     => $pcl->created_at?->format('Y-m-d'),
             ];
         } else {
             foreach ($pcl->surveis as $survei) {
@@ -58,6 +59,7 @@ class PclController extends Controller
                     'nama_survei'    => $survei->nama_survei,
                     'pml_id'         => $pml?->id,
                     'nama_pml'       => $pml?->nama_pml ?? '-',
+                    'created_at'     => $pcl->created_at?->format('Y-m-d'),
                 ];
             }
         }

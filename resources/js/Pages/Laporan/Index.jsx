@@ -8,6 +8,8 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
     const [selectedSurveiId, setSelectedSurveiId] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         survei_id: '',
@@ -75,8 +77,11 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
     const filtered = laporanBySurvei.filter(l => {
         const searchTerm = search.toLowerCase();
         const pclOrPmlName = role === 'PCL' ? l.nama_pml : l.nama_pcl;
-        return l.nama_survei.toLowerCase().includes(searchTerm) ||
+        const matchesSearch = l.nama_survei.toLowerCase().includes(searchTerm) ||
             pclOrPmlName.toLowerCase().includes(searchTerm);
+        const matchesFromDate = !startDate || (l.tanggal && l.tanggal >= startDate);
+        const matchesToDate = !endDate || (l.tanggal && l.tanggal <= endDate);
+        return matchesSearch && matchesFromDate && matchesToDate;
     });
 
     const selectedPml = data.survei_id ? pmlBySurvei?.[data.survei_id] ?? null : null;
@@ -122,7 +127,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                 </label>
                 <select
                     value={selectedSurveiId}
-                    onChange={e => { setSelectedSurveiId(e.target.value); setSearch(''); }}
+                    onChange={e => { setSelectedSurveiId(e.target.value); setSearch(''); setStartDate(''); setEndDate(''); }}
                     className="w-full md:w-xs border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="">-- Pilih survei --</option>
@@ -221,21 +226,45 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                         </div>
                     </div>
 
-                    {/* Search */}
+                    {/* Filter periode + Search (Search hanya untuk role PML) */}
                     <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-                        <div className="relative max-w-xs">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </span>
-                            <input
-                                type="text"
-                                placeholder={`Cari nama ${role === 'PCL' ? 'PML' : 'PCL'}...`}
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                        <div className={`grid gap-3 ${role === 'PML' ? 'lg:grid-cols-[1.4fr_1.4fr_1fr] xl:grid-cols-[1.2fr_1.2fr_1.6fr]' : 'lg:grid-cols-2'} items-end`}>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Mulai tanggal</label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sampai tanggal</label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={e => setEndDate(e.target.value)}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            {role === 'PML' && (
+                                <div className="relative min-w-0">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </span>
+                                    <input
+                                        type="text"
+                                        placeholder={`Cari nama ${role === 'PCL' ? 'PML' : 'PCL'}...`}
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                        className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 

@@ -8,6 +8,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
     const [selectedSurveiId, setSelectedSurveiId] = useState('');
+    const [selectedPmlName, setSelectedPmlName] = useState('');
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
@@ -75,6 +76,12 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         setData('pml_id', '');
     }, [data.survei_id]);
 
+    // Reset selectedPmlName ketika selectedSurveiId berubah
+    useEffect(() => {
+        setSelectedPmlName('');
+        setSearch('');
+    }, [selectedSurveiId]);
+
     // PML yang difilter berdasarkan survei di form modal
     const filteredPmls = pmls?.filter(pml =>
         (!data.survei_id || (pml.survei_ids && pml.survei_ids.includes(parseInt(data.survei_id))))
@@ -85,12 +92,26 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         ? pcls?.filter(p => String(p.survei_id) === String(selectedSurveiId)) ?? []
         : [];
 
-    // Filter berdasarkan search
-    const filtered = pclBySurvei.filter(p =>
-        p.nama_PCL.toLowerCase().includes(search.toLowerCase()) ||
-        p.email.toLowerCase().includes(search.toLowerCase()) ||
-        p.asal_kecamatan.toLowerCase().includes(search.toLowerCase())
-    );
+    // Filter berdasarkan search dan nama PML
+    const filtered = pclBySurvei.filter(p => {
+        const query = search.toLowerCase();
+        const matchesSearch =
+            p.nama_PCL.toLowerCase().includes(query) ||
+            p.email.toLowerCase().includes(query) ||
+            p.asal_kecamatan.toLowerCase().includes(query);
+
+        const matchesPml = !selectedPmlName || p.nama_pml === selectedPmlName;
+
+        return matchesSearch && matchesPml;
+    });
+
+    // Daftar nama PML yang sesuai dengan survei yang dipilih
+    const pmlOptions = selectedSurveiId
+        ? pmls?.filter(pml => pml.survei_ids?.includes(parseInt(selectedSurveiId)))
+             .map(pml => pml.nama_PML)
+             .filter(Boolean)
+             .sort()
+        : [];
 
     // Nama survei yang sedang dipilih (untuk ditampilkan di heading)
     const selectedSurveiLabel = surveis?.find(s => String(s.id) === String(selectedSurveiId))?.nama_survei ?? '';
@@ -156,21 +177,38 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                 </div>
             ) : (
                 <>
-                    {/* Search */}
+                    {/* Search + Filter PML */}
                     <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-                        <div className="relative max-w-xs">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Cari nama, email, atau kecamatan..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div className="relative min-w-0 flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="Cari nama, email atau kecamatan..."
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div className="min-w-0 md:max-w-xs">
+                                <label className="sr-only"> PML</label>
+                                <select
+                                    value={selectedPmlName}
+                                    onChange={e => setSelectedPmlName(e.target.value)}
+                                    disabled={!selectedSurveiId}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                                >
+                                    <option value="">{selectedSurveiId ? '--  Filter PML --' : 'Pilih survei terlebih dahulu'}</option>
+                                    {selectedSurveiId && pmlOptions.map(pmlName => (
+                                        <option key={pmlName} value={pmlName}>{pmlName}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
