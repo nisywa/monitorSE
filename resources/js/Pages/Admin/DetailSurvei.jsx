@@ -279,7 +279,7 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                 </div>
             </div>
 
-            {/* Laporan Section */}
+            {/* Laporan Section
             <div className="bg-white rounded-xl border border-gray-100 p-6 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Ringkasan Laporan Survei</h3>
                 {laporan && laporan.length > 0 ? (
@@ -314,7 +314,7 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                 ) : (
                     <p className="text-gray-500 text-sm">Belum ada laporan untuk survei ini</p>
                 )}
-            </div>
+            </div> */}
 
         </MainLayout>
     );

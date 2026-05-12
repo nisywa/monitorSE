@@ -19,6 +19,12 @@ class AuthController extends Controller
         }
         
         $request->session()->regenerate();
+        $user = Auth::user();
+
+        if (in_array($user->role, ['PCL', 'PML'])) {
+            return redirect()->route('laporan.index')->with('success', 'Login berhasil');
+        }
+
         return redirect()->route('dashboard')->with('success', 'Login berhasil');
     }
 
@@ -36,6 +42,10 @@ public function logout(Request $request) {
 public function showLogin()
     {
         if (Auth::check()) {
+            $user = Auth::user();
+            if (in_array($user->role, ['PCL', 'PML'])) {
+                return redirect()->route('laporan.index');
+            }
             return redirect()->route('dashboard');
         }
         return Inertia::render('Auth/Login');

@@ -238,6 +238,7 @@ class SurveiController extends Controller
                 'created_at' => $lap->created_at,
                 'data_usaha' => $lap->data_usaha ?? '-',
                 'data_keluarga' => $lap->data_keluarga ?? '-',
+                'data_submit' => $lap->data_submit ?? 0,
             ]),
         ]);
     }

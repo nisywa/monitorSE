@@ -78,6 +78,11 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
 
     const pageTitle = role === 'admin' ? 'List Laporan' : 'Laporan Saya';
 
+    // Hitung total dari semua laporan
+    const totalDataUsaha = laporans?.reduce((sum, l) => sum + (l.data_usaha || 0), 0) || 0;
+    const totalDataKeluarga = laporans?.reduce((sum, l) => sum + (l.data_keluarga || 0), 0) || 0;
+    const totalDataSubmit = laporans?.reduce((sum, l) => sum + (l.data_submit || 0), 0) || 0;
+
     return (
         <MainLayout title={pageTitle}>
             <Head title={pageTitle} />
@@ -98,13 +103,11 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                     </button>
                 )}
             </div>
-
-            {/* Role Info Banner */}
-            <div className={`rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2 ${
+   <div className={`rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2 ${
                 role === 'admin' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
                 role === 'PML'   ? 'bg-blue-50 text-blue-700 border border-blue-100' :
                 'bg-green-50 text-green-700 border border-green-100'
-            }`}>
+            }`}>ta
                 <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
@@ -112,6 +115,72 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                 {role === 'PML'   && 'Anda login sebagai PML — dapat melihat data laporan yang diinput PCL dan menghapus jika perlu.'}
                 {role === 'PCL'   && 'Anda login sebagai PCL — dapat menambahkan laporan baru.'}
             </div>
+
+            {/* Ringkasan Card */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                {/* Card Data Usaha */}
+                <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">Total Data Usaha</p>
+                            <p className="text-3xl font-bold text-blue-600">{totalDataUsaha.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card Data Keluarga */}
+                <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">Total Data Keluarga</p>
+                            <p className="text-3xl font-bold text-green-600">{totalDataKeluarga.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3.914a.5.5 0 01-.5-.5V5.414a.5.5 0 01.5-.5h10.172a.5.5 0 01.5.5v15.086a.5.5 0 01-.5.5z M15 21h6a.5.5 0 00.5-.5v-5.5a.5.5 0 00-.5-.5h-6M15 21v-3M9 10a1 1 0 100-2 1 1 0 000 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card Data Submit */}
+                <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">Total Data Submit</p>
+                            <p className="text-3xl font-bold text-orange-600">{totalDataSubmit.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card Jumlah Laporan */}
+                <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">Jumlah Laporan</p>
+                            <p className="text-3xl font-bold text-purple-600">{(laporans?.length ?? 0).toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Role Info Banner */}
+         
 
             {/* Search */}
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">

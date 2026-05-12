@@ -82,7 +82,7 @@ export default function LaporanPcl({ pcl, survei, laporan }) {
                                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Dibuat</th>
                                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Usaha</th>
                                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Keluarga</th>
-                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Data Submit</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -93,11 +93,7 @@ export default function LaporanPcl({ pcl, survei, laporan }) {
                                         <td className="px-6 py-3.5 text-gray-600">{formatDate(lap.created_at)}</td>
                                         <td className="px-6 py-3.5 font-medium text-gray-800">{lap.data_usaha || '-'}</td>
                                         <td className="px-6 py-3.5 font-medium text-gray-800">{lap.data_keluarga || '-'}</td>
-                                        <td className="px-6 py-3.5">
-                                            <span className="bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                                                Tersimpan
-                                            </span>
-                                        </td>
+                                        <td className="px-6 py-3.5 font-medium text-gray-800">{lap.data_submit || 0}</td>
                                     </tr>
                                 ))
                             ) : (

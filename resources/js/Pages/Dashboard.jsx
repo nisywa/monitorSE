@@ -269,7 +269,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pclsBySurve
             {(role === 'admin' || role === 'PML') && selectedSurvei && selectedPcl && (
                 <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">Data Per PCL: {filteredChartData.pcl_name}</h3>
-                    <p className="text-sm text-gray-600 mb-4">Menampilkan data usaha dan data keluarga untuk PCL yang dipilih</p>
+                    <p className="text-sm text-gray-600 mb-4">Menampilkan data usaha, data keluarga, dan data submit untuk PCL yang dipilih</p>
                     {loading ? (
                         <div className="flex items-center justify-center h-64">
                             <div className="text-center">

@@ -148,8 +148,9 @@ class DashboardController extends Controller
             }
         }
 
-        $laporanSums = $laporanQuery->get();
-        if ($laporanSums->isEmpty()) {
+        // Cek apakah ada laporan untuk survei dan PCL ini
+        $hasLaporan = $laporanQuery->exists();
+        if (!$hasLaporan) {
             return response()->json([
                 'data_usaha' => 0,
                 'data_keluarga' => 0,
@@ -158,9 +159,9 @@ class DashboardController extends Controller
             ]);
         }
 
-        $dataUsaha = $laporanSums->sum('data_usaha');
-        $dataKeluarga = $laporanSums->sum('data_keluarga');
-        $dataSubmit = $laporanSums->where('data_submit', true)->count();
+        $dataUsaha = $laporanQuery->sum('data_usaha');
+        $dataKeluarga = $laporanQuery->sum('data_keluarga');
+        $dataSubmit = $laporanQuery->sum('data_submit');
 
         $pcl = Pcl::find($pclId);
         return response()->json([

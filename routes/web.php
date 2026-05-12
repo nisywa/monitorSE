@@ -85,13 +85,13 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:PCL')
         ->name('laporan.store');
 
-    // Hanya PML yang bisa edit dan hapus laporan
+    // Hanya PML atau PCL pemilik laporan yang bisa edit dan hapus laporan
     Route::put('/laporan/{id}', [LaporanController::class, 'update'])
-        ->middleware('role:PML')
+        ->middleware('role:PML,PCL')
         ->name('laporan.update');
 
     Route::delete('/laporan/{id}', [LaporanController::class, 'destroy'])
-        ->middleware('role:PML')
+        ->middleware('role:PML,PCL')
         ->name('laporan.destroy');
 });
 
