@@ -16,85 +16,138 @@ class PclController extends Controller
     /**
      * Tampilkan list semua PCL
      */
-    public function index()
-    {
-        $pcls = Pcl::with(['user', 'pmls', 'surveis'])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($pcl) {
-                return [
-                    'id'              => $pcl->id,
-                    'nama_PCL'        => $pcl->nama_pcl,
-                    'tanggal_lahir'   => $pcl->tanggal_lahir,
-                    'asal_kecamatan'  => $pcl->asal_kecamatan,
-                    'blok_sensus'     => $pcl->blok_sensus,
-                    'email'           => $pcl->user->email ?? '-',
-                    'pmls'            => $pcl->pmls->map(fn($pml) => ['id' => $pml->id, 'nama_pml' => $pml->nama_pml])->toArray(),
-                    'surveis'         => $pcl->surveis->map(fn($s) => ['id' => $s->id, 'nama_survei' => $s->nama_survei])->toArray(),
-                ];
-            });
+  public function index()
+{
+    $pcls = Pcl::with(['user', 'pmls', 'surveis'])
+        ->orderBy('created_at', 'desc')
+        ->get();
 
-        // Ambil daftar PML untuk dropdown
-        $pmls = Pml::with('surveis')->select('id', 'nama_pml')
-            ->orderBy('nama_pml')
-            ->get()
-            ->map(function ($pml) {
-                return [
-                    'id'        => $pml->id,
-                    'nama_PML'  => $pml->nama_pml,
-                    'survei_ids' => $pml->surveis->pluck('id')->toArray(),
-                ];
-            });
+    // Flatten: 1 baris per kombinasi PCL + Survei
+    $rows = [];
+    foreach ($pcls as $pcl) {
+        if ($pcl->surveis->isEmpty()) {
+            // PCL tanpa survei tetap ditampilkan
+            $rows[] = [
+                'id'             => $pcl->id . '_0',
+                'pcl_id'         => $pcl->id,
+                'nama_PCL'       => $pcl->nama_pcl,
+                'tanggal_lahir'  => $pcl->tanggal_lahir,
+                'asal_kecamatan' => $pcl->asal_kecamatan,
+                'blok_sensus'    => $pcl->blok_sensus,
+                'email'          => $pcl->user->email ?? '-',
+                'survei_id'      => null,
+                'nama_survei'    => '-',
+                'pml_id'         => null,
+                'nama_pml'       => '-',
+            ];
+        } else {
+            foreach ($pcl->surveis as $survei) {
+                // Cari PML yang terkait dengan survei ini
+                $pml = $pcl->pmls->firstWhere('pivot.survei_id', $survei->id)
+                    ?? $pcl->pmls->first(); // fallback jika pivot tidak ada survei_id
 
-        // Ambil daftar Survei untuk dropdown
-        $surveis = Survei::select('id', 'nama_survei')
-            ->orderBy('nama_survei')
-            ->get()
-            ->map(function ($s) {
-                return [
-                    'id'           => $s->id,
-                    'nama_survei'  => $s->nama_survei,
+                $rows[] = [
+                    'id'             => $pcl->id . '_' . $survei->id,
+                    'pcl_id'         => $pcl->id,
+                    'nama_PCL'       => $pcl->nama_pcl,
+                    'tanggal_lahir'  => $pcl->tanggal_lahir,
+                    'asal_kecamatan' => $pcl->asal_kecamatan,
+                    'blok_sensus'    => $pcl->blok_sensus,
+                    'email'          => $pcl->user->email ?? '-',
+                    'survei_id'      => $survei->id,
+                    'nama_survei'    => $survei->nama_survei,
+                    'pml_id'         => $pml?->id,
+                    'nama_pml'       => $pml?->nama_pml ?? '-',
                 ];
-            });
-
-        return Inertia::render('Admin/ManajemenPCL', [
-            'pcls'    => $pcls,
-            'pmls'    => $pmls,
-            'surveis' => $surveis,
-        ]);
+            }
+        }
     }
+
+    $pmls = Pml::with('surveis')->select('id', 'nama_pml')
+        ->orderBy('nama_pml')
+        ->get()
+        ->map(fn($pml) => [
+            'id'         => $pml->id,
+            'nama_PML'   => $pml->nama_pml,
+            'survei_ids' => $pml->surveis->pluck('id')->toArray(),
+        ]);
+
+    $surveis = Survei::select('id', 'nama_survei')
+        ->orderBy('nama_survei')
+        ->get()
+        ->map(fn($s) => ['id' => $s->id, 'nama_survei' => $s->nama_survei]);
+
+    return Inertia::render('Admin/ManajemenPCL', [
+        'pcls'    => $rows,
+        'pmls'    => $pmls,
+        'surveis' => $surveis,
+    ]);
+}
 
     /**
      * Simpan data PCL baru (sekaligus buat akun user)
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'nama'           => 'required|string|max:255',
-            'email'          => 'required|email|unique:users,email',
-            'pml_id'         => 'required|exists:pml,id',
-            'survei_id'      => 'required|exists:survei,id',
-            'tanggal_lahir'  => 'required|date',
-            'asal_kecamatan' => 'required|string|max:255',
-            'blok_sensus'    => 'required|string|max:255',
-        ], [
-            'nama.required'           => 'Nama PCL wajib diisi.',
-            'email.required'          => 'Email wajib diisi.',
-            'email.unique'            => 'Email sudah digunakan.',
-            'pml_id.required'         => 'PML wajib dipilih.',
-            'pml_id.exists'           => 'PML tidak ditemukan.',
-            'survei_id.required'      => 'Survei wajib dipilih.',
-            'survei_id.exists'        => 'Survei tidak ditemukan.',
-            'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
-            'asal_kecamatan.required' => 'Asal kecamatan wajib diisi.',
-            'blok_sensus.required'    => 'Blok sensus wajib diisi.',
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'nama'           => 'required|string|max:255',
+        'email'          => 'required|email',
+        'pml_id'         => 'required|exists:pml,id',
+        'survei_id'      => 'required|exists:survei,id',
+        'tanggal_lahir'  => 'required|date',
+        'asal_kecamatan' => 'required|string|max:255',
+        'blok_sensus'    => 'required|string|max:255',
+    ], [
+        'nama.required'           => 'Nama PCL wajib diisi.',
+        'email.required'          => 'Email wajib diisi.',
+        'pml_id.required'         => 'PML wajib dipilih.',
+        'survei_id.required'      => 'Survei wajib dipilih.',
+        'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
+        'asal_kecamatan.required' => 'Asal kecamatan wajib diisi.',
+        'blok_sensus.required'    => 'Blok sensus wajib diisi.',
+    ]);
 
-        // Generate password otomatis dari tanggal lahir (DDMMYYYY)
-        $generatedPassword = date('dmY', strtotime($request->tanggal_lahir));
+    $generatedPassword = date('dmY', strtotime($request->tanggal_lahir));
 
-        DB::transaction(function () use ($request, $generatedPassword) {
-            // Simpan ke tabel users
+    DB::transaction(function () use ($request, $generatedPassword) {
+        // Cek apakah user dengan email ini sudah ada
+        $user = User::where('email', $request->email)->first();
+
+        if ($user) {
+            // Pastikan role-nya PCL
+            if ($user->role !== 'PCL') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'Email ini sudah digunakan oleh akun dengan role lain.',
+                ]);
+            }
+
+            // Ambil data PCL yang sudah ada
+            $pcl = Pcl::where('user_id', $user->id)->first();
+
+            if (!$pcl) {
+                // Jika user ada tapi data PCL belum, buat baru
+                $pcl = Pcl::create([
+                    'user_id'        => $user->id,
+                    'nama_pcl'       => $request->nama,
+                    'tanggal_lahir'  => $request->tanggal_lahir,
+                    'asal_kecamatan' => $request->asal_kecamatan,
+                    'blok_sensus'    => $request->blok_sensus,
+                ]);
+            }
+
+            // Cek apakah PCL ini sudah terdaftar di survei yang dipilih
+            if ($pcl->surveis()->where('survei_id', $request->survei_id)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'survei_id' => 'PCL ini sudah terdaftar di survei yang dipilih.',
+                ]);
+            }
+
+            // Tambahkan relasi survei & PML baru (attach, bukan sync)
+            $pcl->surveis()->attach($request->survei_id);
+            $pcl->pmls()->attach($request->pml_id);
+
+        } else {
+            // User belum ada, buat user baru
             $user = User::create([
                 'nama'     => $request->nama,
                 'email'    => $request->email,
@@ -102,7 +155,6 @@ class PclController extends Controller
                 'role'     => 'PCL',
             ]);
 
-            // Simpan ke tabel pcl
             $pcl = Pcl::create([
                 'user_id'        => $user->id,
                 'nama_pcl'       => $request->nama,
@@ -111,16 +163,13 @@ class PclController extends Controller
                 'blok_sensus'    => $request->blok_sensus,
             ]);
 
-            // Tambahkan relasi dengan PML
             $pcl->pmls()->attach($request->pml_id);
-
-            // Tambahkan relasi dengan Survei
             $pcl->surveis()->attach($request->survei_id);
-        });
+        }
+    });
 
-        return redirect()->back()->with('success', "Data PCL berhasil ditambahkan. Password default: {$generatedPassword}");
-    }
-
+    return redirect()->back()->with('success', "Data PCL berhasil ditambahkan. Password default: {$generatedPassword}");
+}
     /**
      * Tampilkan data PCL tertentu (untuk form edit)
      */

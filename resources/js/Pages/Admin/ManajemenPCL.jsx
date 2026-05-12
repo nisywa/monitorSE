@@ -7,7 +7,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
-    const [filterSurvei, setFilterSurvei] = useState('');
+    const [selectedSurveiId, setSelectedSurveiId] = useState('');
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
@@ -23,6 +23,10 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         setEditData(null);
         reset();
         clearErrors();
+        // Isi otomatis survei_id dari survei yang sedang dipilih
+        if (selectedSurveiId) {
+            setData('survei_id', selectedSurveiId);
+        }
         setShowModal(true);
     };
 
@@ -66,176 +70,192 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         }
     };
 
-    // Reset pml_id when survei_id changes
+    // Reset pml_id ketika survei_id di form berubah
     useEffect(() => {
         setData('pml_id', '');
     }, [data.survei_id]);
 
+    // PML yang difilter berdasarkan survei di form modal
     const filteredPmls = pmls?.filter(pml =>
         (!data.survei_id || (pml.survei_ids && pml.survei_ids.includes(parseInt(data.survei_id))))
     ) ?? [];
 
-    const filtered = pcls?.filter(p =>
+    // Filter tabel berdasarkan survei yang dipilih di halaman
+    const pclBySurvei = selectedSurveiId
+        ? pcls?.filter(p => String(p.survei_id) === String(selectedSurveiId)) ?? []
+        : [];
+
+    // Filter berdasarkan search
+    const filtered = pclBySurvei.filter(p =>
         p.nama_PCL.toLowerCase().includes(search.toLowerCase()) ||
         p.email.toLowerCase().includes(search.toLowerCase()) ||
         p.asal_kecamatan.toLowerCase().includes(search.toLowerCase())
-    )?.filter(p =>
-        !filterSurvei || (p.surveis && p.surveis.some(s => s.id == filterSurvei))
-    ) ?? [];
+    );
+
+    // Nama survei yang sedang dipilih (untuk ditampilkan di heading)
+    const selectedSurveiLabel = surveis?.find(s => String(s.id) === String(selectedSurveiId))?.nama_survei ?? '';
 
     return (
         <MainLayout title="Manajemen PCL">
             <Head title="Manajemen PCL" />
 
+            {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800">Daftar PCL</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">Total {pcls?.length ?? 0} PCL terdaftar</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        {selectedSurveiId
+                            ? `${filtered.length} PCL terdaftar di ${selectedSurveiLabel}`
+                            : 'Pilih survei untuk melihat data PCL'}
+                    </p>
                 </div>
-                <button
-                    onClick={openAdd}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                {selectedSurveiId && (
+                    <button
+                        onClick={openAdd}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Tambah PCL
+                    </button>
+                )}
+            </div>
+
+            {/* Pilih Survei */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Pilih Survei
+                    <span className="font-normal text-gray-500 ml-1">(Wajib dipilih untuk melihat data PCL)</span>
+                </label>
+                <select
+                    value={selectedSurveiId}
+                    onChange={e => { setSelectedSurveiId(e.target.value); setSearch(''); }}
+                    className="w-full md:w-xs border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Tambah PCL
-                </button>
+                    <option value="">-- Pilih survei --</option>
+                    {surveis?.map(s => (
+                        <option key={s.id} value={s.id}>{s.nama_survei}</option>
+                    ))}
+                </select>
             </div>
 
-            {/* Search and Filter */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-                <div className="flex gap-4">
-                    <div className="relative flex-1 max-w-xs">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </span>
-                        <input
-                            type="text"
-                            placeholder="Cari nama, email, atau kecamatan..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+            {/* Konten: tampil hanya setelah survei dipilih */}
+            {!selectedSurveiId ? (
+                /* Placeholder */
+                <div className="bg-white rounded-xl border border-gray-100 p-16 flex flex-col items-center justify-center text-center gap-3">
+                    <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2">
+                        <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
                     </div>
-                    
-                    <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                        </span>
-                        <select
-                            value={filterSurvei}
-                            onChange={e => setFilterSurvei(e.target.value)}
-                            className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-48"
-                        >
-                            <option value="">Semua Survei</option>
-                            {surveis?.map(survei => (
-                                <option key={survei.id} value={survei.id}>
-                                    {survei.nama_survei}
-                                </option>
-                            ))}
-                        </select>
+                    <p className="text-gray-700 font-medium">Pilih survei terlebih dahulu</p>
+                    <p className="text-gray-400 text-sm max-w-xs">
+                        Data PCL akan ditampilkan setelah Anda memilih survei di atas.
+                    </p>
+                </div>
+            ) : (
+                <>
+                    {/* Search */}
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
+                        <div className="relative max-w-xs">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Cari nama, email, atau kecamatan..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama PCL</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">PML</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Survei</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
-                                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
-                                        {search ? 'Tidak ada hasil pencarian.' : 'Belum ada data PCL.'}
-                                    </td>
-                                </tr>
-                            ) : filtered.map((pcl, i) => (
-                                <tr key={pcl.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
-                                    <td className="px-5 py-3.5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-semibold shrink-0">
-                                                {pcl.nama_PCL.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-gray-800">{pcl.nama_PCL}</p>
-                                                <p className="text-xs text-gray-400">{pcl.tanggal_lahir}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-3.5 text-gray-600">{pcl.email}</td>
-                                    <td className="px-5 py-3.5">
-                                        <div className="flex flex-wrap gap-1">
-                                            {pcl.pmls?.length > 0 ? (
-                                                pcl.pmls.map(pml => (
-                                                    <span key={pml.id} className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                                                        {pml.nama_pml}
+                    {/* Table */}
+                    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama PCL</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">PML</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Blok Sensus</th>
+                                        <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {filtered.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
+                                                {search
+                                                    ? 'Tidak ada hasil pencarian.'
+                                                    : `Belum ada PCL terdaftar di survei ${selectedSurveiLabel}.`}
+                                            </td>
+                                        </tr>
+                                    ) : filtered.map((pcl, i) => (
+                                        <tr key={pcl.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
+                                            <td className="px-5 py-3.5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-semibold shrink-0">
+                                                        {pcl.nama_PCL.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-800">{pcl.nama_PCL}</p>
+                                                        <p className="text-xs text-gray-400">{pcl.tanggal_lahir}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.email}</td>
+                                            <td className="px-5 py-3.5">
+                                                {pcl.nama_pml && pcl.nama_pml !== '-' ? (
+                                                    <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                                                        {pcl.nama_pml}
                                                     </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-gray-400 text-xs">-</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-3.5">
-                                        <div className="flex flex-wrap gap-1">
-                                            {pcl.surveis?.length > 0 ? (
-                                                pcl.surveis.map(s => (
-                                                    <span key={s.id} className="bg-purple-100 text-purple-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                                                        {s.nama_survei}
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-gray-400 text-xs">-</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-3.5 text-gray-600">{pcl.asal_kecamatan}</td>
-                                    <td className="px-5 py-3.5 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => openEdit(pcl)}
-                                                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                                Edit
-                                            </button>
-                                            <button onClick={() => handleDelete(pcl.id)}
-                                                className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                                Hapus
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                                ) : (
+                                                    <span className="text-gray-400 text-xs">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.asal_kecamatan}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.blok_sensus}</td>
+                                            <td className="px-5 py-3.5 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => openEdit({ id: pcl.pcl_id })}
+                                                        className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                        Edit
+                                                    </button>
+                                                    <button onClick={() => handleDelete(pcl.pcl_id)}
+                                                        className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
 
-            {/* Modal */}
-            <Modal show={showModal} onClose={() => setShowModal(false)} title={editData ? 'Edit Data PCL' : 'Tambah PCL Baru'} maxWidth="2xl">
+            {/* Modal Tambah / Edit */}
+            <Modal show={showModal} onClose={() => setShowModal(false)}
+                title={editData ? 'Edit Data PCL' : 'Tambah PCL Baru'} maxWidth="2xl">
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Basic Info */}
+                    {/* Informasi Dasar */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-gray-700">Informasi Dasar</h3>
                         <div className="grid grid-cols-2 gap-4">
@@ -253,6 +273,11 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-200'}`}
                                     placeholder="Email" />
                                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                                {!editData && (
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        {/* 💡 Jika PCL sudah pernah terdaftar, masukkan email yang sama untuk menambahkan ke survei baru. */}
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -280,12 +305,11 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                         </div>
                     </div>
 
-                    {/* Survei Selection */}
+                    {/* Pilih Survei */}
                     <div className="space-y-3 border-t pt-4">
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-3">Pilih Survei</label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Pilih Survei</label>
                             {errors.survei_id && <p className="text-red-500 text-xs mb-2">{errors.survei_id}</p>}
-                            
                             <select
                                 value={data.survei_id}
                                 onChange={e => setData('survei_id', e.target.value)}
@@ -293,21 +317,18 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                             >
                                 <option value="">Pilih Survei</option>
                                 {surveis?.map(survei => (
-                                    <option key={survei.id} value={survei.id}>
-                                        {survei.nama_survei}
-                                    </option>
+                                    <option key={survei.id} value={survei.id}>{survei.nama_survei}</option>
                                 ))}
                             </select>
                         </div>
                     </div>
 
-                    {/* PML Selection - Only show if survei is selected */}
+                    {/* Pilih PML — hanya tampil setelah survei dipilih */}
                     {data.survei_id && (
                         <div className="space-y-3 border-t pt-4">
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-3">Pilih PML</label>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Pilih PML</label>
                                 {errors.pml_id && <p className="text-red-500 text-xs mb-2">{errors.pml_id}</p>}
-                                
                                 <select
                                     value={data.pml_id}
                                     onChange={e => setData('pml_id', e.target.value)}
@@ -315,9 +336,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                 >
                                     <option value="">Pilih PML</option>
                                     {filteredPmls?.map(pml => (
-                                        <option key={pml.id} value={pml.id}>
-                                            {pml.nama_PML}
-                                        </option>
+                                        <option key={pml.id} value={pml.id}>{pml.nama_PML}</option>
                                     ))}
                                 </select>
                             </div>

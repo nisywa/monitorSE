@@ -48,6 +48,7 @@ class LaporanController extends Controller
                     'data_usaha'   => $laporan->data_usaha,
                     'data_keluarga'=> $laporan->data_keluarga,
                     'data_submit'  => $laporan->data_submit,
+                    'survei_status' => $this->getStatus($laporan->survei->tanggal_mulai, $laporan->survei->tanggal_selesai),
                 ];
             });
 
@@ -76,6 +77,28 @@ class LaporanController extends Controller
                     'id'       => $item['pml_id'],
                     'nama_pml' => $item['nama_pml'],
                 ]])->toArray();
+        } elseif ($user->role === 'PML') {
+            $pml = $user->pml;
+
+            if ($pml) {
+                $directSurveis = $pml->surveis()
+                    ->select('survei.id', 'survei.nama_survei')
+                    ->get();
+
+                $pclSurveis = Survei::select('survei.id', 'survei.nama_survei')
+                    ->whereHas('pcls', function ($query) use ($pml) {
+                        $query->whereHas('pmls', function ($query) use ($pml) {
+                            $query->where('pml.id', $pml->id);
+                        });
+                    })
+                    ->get();
+
+                $surveis = $directSurveis->merge($pclSurveis)
+                    ->unique('id')
+                    ->values();
+            } else {
+                $surveis = collect();
+            }
         } elseif ($user->role === 'admin') {
             $surveis = Survei::select('id', 'nama_survei')->get();
         }
@@ -210,5 +233,21 @@ class LaporanController extends Controller
         $laporan->delete();
 
         return redirect()->back()->with('success', 'Laporan berhasil dihapus.');
+    }
+
+    /**
+     * Helper: Tentukan status survei berdasarkan tanggal
+     */
+    private function getStatus($tanggalMulai, $tanggalSelesai): string
+    {
+        $today = now()->toDateString();
+
+        if ($today < $tanggalMulai) {
+            return 'Belum Mulai';
+        } elseif ($today > $tanggalSelesai) {
+            return 'Selesai';
+        } else {
+            return 'Berlangsung';
+        }
     }
 }

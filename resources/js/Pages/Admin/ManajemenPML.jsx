@@ -120,8 +120,8 @@ export default function ManajemenPML({ pmls }) {
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama PML</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Lahir</th>
-                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total PCL</th>
-                                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
+                                {/* <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total PCL</th> */}
+                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -144,14 +144,14 @@ export default function ManajemenPML({ pmls }) {
                                     </td>
                                     <td className="px-5 py-3.5 text-gray-600">{pml.email}</td>
                                     <td className="px-5 py-3.5 text-gray-600">{pml.tanggal_lahir}</td>
-                                    <td className="px-5 py-3.5">
+                                    {/* <td className="px-5 py-3.5">
                                         <span className="bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
                                             {pml.total_pcl} PCL
                                         </span>
-                                    </td>
-                                    <td className="px-5 py-3.5 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
+                                    </td> */}
+                                    <td className="px-5 py-3.5">
+                                    <div className="flex items-center justify-start gap-2">                                           
+                                        <button
                                                 onClick={() => openEdit(pml)}
                                                 className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
                                             >

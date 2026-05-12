@@ -8,10 +8,14 @@ export default function Login() {
     });
 
     const [showPassword, setShowPassword] = useState(false);
+    const [showSplash, setShowSplash] = useState(false);
 
     const submit = (e) => {
         e.preventDefault();
-        post('/login');
+        setShowSplash(true);
+        post('/login', {
+            onError: () => setShowSplash(false),
+        });
     };
 
     return (
@@ -112,6 +116,30 @@ export default function Login() {
                     transition: color 0.2s; padding: 0;
                 }
                 .eye-toggle:hover { color: #0077cc; }
+                .login-splash {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(255,255,255,0.96);
+                    z-index: 50;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 18px;
+                    padding: 1.5rem;
+                    text-align: center;
+                }
+                .login-splash .spinner {
+                    width: 68px;
+                    height: 68px;
+                    border: 6px solid rgba(0,119,204,0.18);
+                    border-top-color: #0077cc;
+                    border-radius: 9999px;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
                 @media (max-width: 560px) {
                     .left-panel { display: none; }
                     .right-panel { padding: 36px 24px; }
@@ -268,6 +296,20 @@ export default function Login() {
                         </form>
                     </div>
                 </div>
+
+                {showSplash && (
+                    <div className="login-splash">
+                        <div className="spinner" />
+                        <div>
+                            <p style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1a3a5c' }}>
+                                Sedang masuk...
+                            </p>
+                            <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#556d8c' }}>
+                                Mohon tunggu, kami sedang mengalihkan Anda ke halaman utama.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </div>

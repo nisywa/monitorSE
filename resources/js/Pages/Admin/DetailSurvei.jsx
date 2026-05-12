@@ -147,7 +147,7 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </div>
-                                    <div className="text-xs text-blue-600 mt-1">{pml.user?.email}</div>
+                                    {/* <div className="text-xs text-blue-600 mt-1">{pml.user?.email}</div> */}
                                 </button>
                             ))
                         ) : (
@@ -217,8 +217,8 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                                 className="block bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
                                             >
                                                 <div className="font-medium text-purple-900">{pcl.nama_pcl}</div>
-                                                <div className="text-xs mt-1">{pcl.user?.email}</div>
-                                                {pcl.pmls?.length > 0 && (
+                                                {/* <div className="text-xs mt-1">{pcl.user?.email}</div> */}
+                                                {/* {pcl.pmls?.length > 0 && (
                                                     <div className="text-xs mt-2 flex flex-wrap gap-1">
                                                         {pcl.pmls.map(pml => (
                                                             <span key={pml.id} className="bg-purple-200 px-2 py-0.5 rounded">
@@ -226,7 +226,7 @@ export default function DetailSurvei({ survei, pmls, pcls, laporan }) {
                                                             </span>
                                                         ))}
                                                     </div>
-                                                )}
+                                                )} */}
                                                 <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
