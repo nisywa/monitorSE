@@ -84,8 +84,9 @@ class PmlController extends Controller
         'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
     ]);
 
-    // ✅ Generate password otomatis dari tanggal lahir (format: YYYYMMDD)
-    $password = str_replace('-', '', $request->tanggal_lahir);
+    // ✅ Generate password otomatis dari tanggal lahir (format: DDMMYYYY)
+    $tanggalLahir = \Carbon\Carbon::createFromFormat('Y-m-d', $request->tanggal_lahir);
+    $password = $tanggalLahir->format('ddmmyyyy');
 
     DB::transaction(function () use ($request, $password) {
         $user = User::create([
