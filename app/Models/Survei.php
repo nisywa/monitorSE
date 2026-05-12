@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Survei extends Model
 {
     protected $table = 'survei';
-    protected $fillable = ['nama_survei', 'deskripsi', 'tanggal_mulai', 'tanggal_selesai'];
+    protected $fillable = ['nama_survei', 'tanggal_mulai', 'tanggal_selesai'];
 
     // Many-to-Many: 1 Survei : Many PML
     public function pmls()
