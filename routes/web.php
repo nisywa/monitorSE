@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
+    Route::get('/api/dashboard/chart-data-by-pml', [DashboardController::class, 'getChartDataByPml'])->name('dashboard.chart-data-by-pml');
 
     /*
     |------------------------------------------------------------------
@@ -50,6 +51,7 @@ Route::middleware('auth')->group(function () {
         // Manajemen PML
         Route::get('/manajemen-pml', [PmlController::class, 'index'])->name('pml.index');
         Route::post('/manajemen-pml', [PmlController::class, 'store'])->name('pml.store');
+        Route::post('/manajemen-pml/import', [PmlController::class, 'import'])->name('manajemen-pml.import');
         Route::get('/manajemen-pml/{id}', [PmlController::class, 'show'])->name('pml.show');
         Route::put('/manajemen-pml/{id}', [PmlController::class, 'update'])->name('pml.update');
         Route::delete('/manajemen-pml/{id}', [PmlController::class, 'destroy'])->name('pml.destroy');
@@ -60,6 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/manajemen-pcl/{id}', [PclController::class, 'show'])->name('pcl.show');
         Route::put('/manajemen-pcl/{id}', [PclController::class, 'update'])->name('pcl.update');
         Route::delete('/manajemen-pcl/{id}', [PclController::class, 'destroy'])->name('pcl.destroy');
+
 
         // Manajemen Survei
         Route::get('/manajemen-survei', [SurveiController::class, 'index'])->name('survei.index');

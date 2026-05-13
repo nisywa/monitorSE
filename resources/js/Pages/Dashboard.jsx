@@ -25,46 +25,41 @@ function StatCard({ label, value, color, icon }) {
     );
 }
 
-export default function Dashboard({ stats, chartData, role, surveis, pclsBySurvei }) {
+export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurvei }) {
     const { auth } = usePage().props;
     
     // State untuk filter
     const [selectedSurvei, setSelectedSurvei] = useState(null);
-    const [selectedPcl, setSelectedPcl] = useState(null);
-    const [pclOptions, setPclOptions] = useState([]);
-    const [filteredChartData, setFilteredChartData] = useState({
-        data_usaha: 0,
-        data_keluarga: 0,
-        data_submit: 0,
-        pcl_name: 'N/A'
-    });
+    const [selectedPml, setSelectedPml] = useState(null);
+    const [pmlOptions, setPmlOptions] = useState([]);
+    const [pclChartData, setPclChartData] = useState([]);
+    const [pmlName, setPmlName] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Effect untuk update PCL options ketika survei berubah
+    // Effect untuk update PML options ketika survei berubah
     useEffect(() => {
-        if (selectedSurvei && pclsBySurvei && pclsBySurvei[selectedSurvei]) {
-            setPclOptions(pclsBySurvei[selectedSurvei]);
-            setSelectedPcl(null);
-            setFilteredChartData({
-                data_usaha: 0,
-                data_keluarga: 0,
-                data_submit: 0,
-                pcl_name: 'N/A'
-            });
+        if (selectedSurvei && pmlsBySurvei && pmlsBySurvei[selectedSurvei]) {
+            setPmlOptions(pmlsBySurvei[selectedSurvei]);
+            setSelectedPml(null);
+            setPclChartData([]);
+            setPmlName('');
         } else {
-            setPclOptions([]);
-            setSelectedPcl(null);
+            setPmlOptions([]);
+            setSelectedPml(null);
+            setPclChartData([]);
+            setPmlName('');
         }
     }, [selectedSurvei]);
 
-    // Effect untuk fetch chart data ketika survei atau PCL berubah
+    // Effect untuk fetch chart data ketika survei atau PML berubah
     useEffect(() => {
-        if (selectedSurvei && selectedPcl) {
+        if (selectedSurvei && selectedPml) {
             setLoading(true);
-            fetch(`/api/dashboard/chart-data?survei_id=${selectedSurvei}&pcl_id=${selectedPcl}`)
+            fetch(`/api/dashboard/chart-data-by-pml?survei_id=${selectedSurvei}&pml_id=${selectedPml}`)
                 .then(response => response.json())
                 .then(data => {
-                    setFilteredChartData(data);
+                    setPclChartData(data.pcls || []);
+                    setPmlName(data.pml_name || '');
                     setLoading(false);
                 })
                 .catch(error => {
@@ -72,7 +67,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pclsBySurve
                     setLoading(false);
                 });
         }
-    }, [selectedSurvei, selectedPcl]);
+    }, [selectedSurvei, selectedPml]);
 
     const adminStats = [
         {
@@ -130,79 +125,70 @@ export default function Dashboard({ stats, chartData, role, surveis, pclsBySurve
 
     const statCards = role === 'admin' ? adminStats : role === 'PML' ? pmlStats : pclStats;
 
-    // Data untuk chart bar laporan (difilter)
-    const filteredBarChartData = [
-        {
-            name: 'Data Usaha',
-            value: filteredChartData?.data_usaha || 0,
-            color: '#3B82F6',
-            label: 'Data Usaha'
-        },
-        {
-            name: 'Data Keluarga',
-            value: filteredChartData?.data_keluarga || 0,
-            color: '#10B981',
-            label: 'Data Keluarga'
-        },
-        {
-            name: 'Data Submit',
-            value: filteredChartData?.data_submit || 0,
-            color: '#F59E0B',
-            label: 'Laporan Tersubmit'
-        }
-    ];
-
-    // Data untuk chart bar laporan
-    const chartDataFormatted = [
-        {
-            name: 'Data Usaha',
-            value: chartData?.data_usaha || 0,
-            color: '#3B82F6',
-            label: 'Total Data Usaha'
-        },
-        {
-            name: 'Data Keluarga',
-            value: chartData?.data_keluarga || 0,
-            color: '#10B981',
-            label: 'Total Data Keluarga'
-        },
-        {
-            name: 'Data Submit',
-            value: chartData?.data_submit || 0,
-            color: '#F59E0B',
-            label: 'Laporan Tersubmit'
-        }
-    ];
-
-    // Data untuk chart statistik utama (hanya untuk admin)
-    const statsChartData = role === 'admin' ? [
-        {
-            name: 'PML',
-            value: stats?.total_pml || 0,
-            color: '#8B5CF6',
-            label: 'Total Petugas Manajemen Lapangan'
-        },
-        {
-            name: 'PCL',
-            value: stats?.total_pcl || 0,
-            color: '#06B6D4',
-            label: 'Total Petugas Cacah Lapangan'
-        },
-        {
-            name: 'Survei',
-            value: stats?.total_survei || 0,
-            color: '#F97316',
-            label: 'Total Survei'
-        },
-        {
-            name: 'Laporan',
-            value: stats?.total_laporan || 0,
-            color: '#EF4444',
-            label: 'Total Laporan'
-        }
-    ] : [];
-
     const roleLabels = { admin: 'Administrator', PML: 'Petugas Manajemen Lapangan', PCL: 'Petugas Cacah Lapangan' };
+
+    // Komponen untuk menampilkan chart PCL
+    function PclChart({ pcl }) {
+        const data = [
+            {
+                name: 'Data Usaha',
+                value: pcl.data_usaha || 0,
+                color: '#3B82F6',
+                label: 'Data Usaha'
+            },
+            {
+                name: 'Data Keluarga',
+                value: pcl.data_keluarga || 0,
+                color: '#10B981',
+                label: 'Data Keluarga'
+            },
+            {
+                name: 'Data Submit',
+                value: pcl.data_submit || 0,
+                color: '#F59E0B',
+                label: 'Laporan Tersubmit'
+            }
+        ];
+
+        return (
+            <div className="bg-white rounded-xl border border-gray-100 p-6">
+                <h4 className="text-md font-semibold text-gray-800 mb-4">PCL {pcl.nama_pcl}</h4>
+                <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis 
+                                dataKey="name" 
+                                tick={{ fontSize: 12, fill: '#6b7280' }}
+                                axisLine={{ stroke: '#d1d5db' }}
+                            />
+                            <YAxis 
+                                tick={{ fontSize: 12, fill: '#6b7280' }}
+                                axisLine={{ stroke: '#d1d5db' }}
+                            />
+                            <Tooltip 
+                                contentStyle={{
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                }}
+                                formatter={(value, name, props) => [
+                                    `${value}`,
+                                    props.payload.label
+                                ]}
+                            />
+                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                {data.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <MainLayout title="Dashboard">
@@ -222,10 +208,10 @@ export default function Dashboard({ stats, chartData, role, surveis, pclsBySurve
                 ))}
             </div>
 
-            {/* Filter Section untuk Per Survei & PCL */}
+            {/* Filter Section untuk Per Survei & PML */}
             {(role === 'admin' || role === 'PML') && surveis && surveis.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Data Per Survei dan PCL</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Data Per Survei dan PML</h3>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {/* Filter Survei */}
                         <div>
@@ -244,19 +230,19 @@ export default function Dashboard({ stats, chartData, role, surveis, pclsBySurve
                             </select>
                         </div>
 
-                        {/* Filter PCL */}
+                        {/* Filter PML */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih PCL</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih PML</label>
                             <select
-                                value={selectedPcl || ''}
-                                onChange={(e) => setSelectedPcl(e.target.value ? parseInt(e.target.value) : null)}
-                                disabled={!selectedSurvei || pclOptions.length === 0}
-                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedSurvei || pclOptions.length === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                value={selectedPml || ''}
+                                onChange={(e) => setSelectedPml(e.target.value ? parseInt(e.target.value) : null)}
+                                disabled={!selectedSurvei || pmlOptions.length === 0}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedSurvei || pmlOptions.length === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
-                                <option value="">-- Pilih PCL --</option>
-                                {pclOptions.map((pcl) => (
-                                    <option key={pcl.id} value={pcl.id}>
-                                        {pcl.nama_pcl}
+                                <option value="">-- Pilih PML --</option>
+                                {pmlOptions.map((pml) => (
+                                    <option key={pml.id} value={pml.id}>
+                                        {pml.nama_pml}
                                     </option>
                                 ))}
                             </select>
@@ -265,156 +251,46 @@ export default function Dashboard({ stats, chartData, role, surveis, pclsBySurve
                 </div>
             )}
 
-            {/* Chart Per Survei & PCL */}
-            {(role === 'admin' || role === 'PML') && selectedSurvei && selectedPcl && (
-                <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Data Per PCL: {filteredChartData.pcl_name}</h3>
-                    <p className="text-sm text-gray-600 mb-4">Menampilkan data usaha, data keluarga, dan data submit untuk PCL yang dipilih</p>
+            {/* Charts Per Survei & PML */}
+            {(role === 'admin' || role === 'PML') && selectedSurvei && selectedPml && (
+                <div className="mb-6">
+                    <div className="mb-4">
+                        <p className="text-sm text-gray-600 mt-1">Menampilkan data usaha, data keluarga, dan data submit untuk setiap PCL yang bertanggung jawab terhadap PML yang dipilih</p>
+                    </div>
                     {loading ? (
-                        <div className="flex items-center justify-center h-64">
+                        <div className="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-100">
                             <div className="text-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
                                 <p className="text-gray-600">Memuat data...</p>
                             </div>
                         </div>
+                    ) : pclChartData.length > 0 ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {pclChartData.map((pcl) => (
+                                <PclChart key={pcl.id} pcl={pcl} />
+                            ))}
+                        </div>
                     ) : (
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={filteredBarChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={{ stroke: '#d1d5db' }}
-                                    />
-                                    <YAxis 
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={{ stroke: '#d1d5db' }}
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{
-                                            backgroundColor: '#ffffff',
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                        }}
-                                        formatter={(value, name, props) => [
-                                            `${value}`,
-                                            props.payload.label
-                                        ]}
-                                    />
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {filteredBarChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                            <p className="text-yellow-800">PML yang dipilih tidak memiliki PCL atau laporan pada survei ini.</p>
                         </div>
                     )}
-                </div>
-            )}
-
-            {/* Pesan ketika PCL belum dipilih */}
-            {(role === 'admin' || role === 'PML') && selectedSurvei && !selectedPcl && pclOptions.length === 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6">
-                    <p className="text-yellow-800">Survei yang dipilih tidak memiliki data PCL atau laporan.</p>
                 </div>
             )}
 
             {/* Pesan ketika belum memilih survei */}
             {(role === 'admin' || role === 'PML') && !selectedSurvei && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-                    <p className="text-blue-800">Silahkan pilih survei terlebih dahulu untuk melihat data per PCL.</p>
+                    <p className="text-blue-800">Silahkan pilih survei terlebih dahulu untuk melihat data per PML dan PCL.</p>
                 </div>
             )}
 
-            {/* Chart Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Chart Data Laporan */}
-                {/* <div className="bg-white rounded-xl border border-gray-100 p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Ringkasan Data Laporan</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartDataFormatted} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                                    axisLine={{ stroke: '#d1d5db' }}
-                                />
-                                <YAxis 
-                                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                                    axisLine={{ stroke: '#d1d5db' }}
-                                />
-                                <Tooltip 
-                                    contentStyle={{
-                                        backgroundColor: '#ffffff',
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
-                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                    }}
-                                    formatter={(value, name, props) => [
-                                        `${value}`,
-                                        props.payload.label
-                                    ]}
-                                />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                    {chartDataFormatted.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                    <div className="mt-4 text-sm text-gray-600">
-                        <p>Grafik menampilkan jumlah akumulatif data usaha, data keluarga, dan jumlah laporan yang sudah tersubmit.</p>
-                    </div>
-                </div> */}
-
-                {/* Chart Statistik Utama (hanya untuk admin) */}
-                {/* {role === 'admin' && (
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Ringkasan Data Survei Dan Laporan</h3>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={statsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={{ stroke: '#d1d5db' }}
-                                    />
-                                    <YAxis 
-                                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                                        axisLine={{ stroke: '#d1d5db' }}
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{
-                                            backgroundColor: '#ffffff',
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '8px',
-                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                                        }}
-                                        formatter={(value, name, props) => [
-                                            `${value}`,
-                                            props.payload.label
-                                        ]}
-                                    />
-                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                        {statsChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="mt-4 text-sm text-gray-600">
-                            <p>Statistik keseluruhan sistem monitoring SE.</p>
-                        </div>
-                    </div>
-                )} */}
-            </div>
+            {/* Pesan ketika survei dipilih tapi PML tidak ada */}
+            {(role === 'admin' || role === 'PML') && selectedSurvei && pmlOptions.length === 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6">
+                    <p className="text-yellow-800">Survei yang dipilih tidak memiliki data PML atau laporan.</p>
+                </div>
+            )}
         </MainLayout>
     );
 }
