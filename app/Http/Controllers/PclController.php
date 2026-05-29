@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Pcl;
 use App\Models\Survei;
 use App\Models\Pml;
+use Carbon\Carbon;
 
 class PclController extends Controller
 {
@@ -28,18 +29,19 @@ class PclController extends Controller
         if ($pcl->surveis->isEmpty()) {
             // PCL tanpa survei tetap ditampilkan
             $rows[] = [
-                'id'             => $pcl->id . '_0',
-                'pcl_id'         => $pcl->id,
-                'nama_PCL'       => $pcl->nama_pcl,
-                'tanggal_lahir'  => $pcl->tanggal_lahir,
-                'asal_kecamatan' => $pcl->asal_kecamatan,
-                'blok_sensus'    => $pcl->blok_sensus,
-                'email'          => $pcl->user->email ?? '-',
-                'survei_id'      => null,
-                'nama_survei'    => '-',
-                'pml_id'         => null,
-                'nama_pml'       => '-',
-                'created_at'     => $pcl->created_at?->format('Y-m-d'),
+                'id'                     => $pcl->id . '_0',
+                'pcl_id'                 => $pcl->id,
+                'nama_PCL'               => $pcl->nama_pcl,
+                'tanggal_lahir'          => $pcl->tanggal_lahir,
+                'tanggal_lahir_formatted' => $pcl->tanggal_lahir ? Carbon::parse($pcl->tanggal_lahir)->format('d-m-Y') : '-',
+                'asal_kecamatan'         => $pcl->asal_kecamatan,
+                'blok_sensus'            => $pcl->blok_sensus,
+                'email'                  => $pcl->user->email ?? '-',
+                'survei_id'              => null,
+                'nama_survei'            => '-',
+                'pml_id'                 => null,
+                'nama_pml'               => '-',
+                'created_at'             => $pcl->created_at?->format('Y-m-d'),
             ];
         } else {
             foreach ($pcl->surveis as $survei) {
@@ -48,18 +50,19 @@ class PclController extends Controller
                     ?? $pcl->pmls->first(); // fallback jika pivot tidak ada survei_id
 
                 $rows[] = [
-                    'id'             => $pcl->id . '_' . $survei->id,
-                    'pcl_id'         => $pcl->id,
-                    'nama_PCL'       => $pcl->nama_pcl,
-                    'tanggal_lahir'  => $pcl->tanggal_lahir,
-                    'asal_kecamatan' => $pcl->asal_kecamatan,
-                    'blok_sensus'    => $pcl->blok_sensus,
-                    'email'          => $pcl->user->email ?? '-',
-                    'survei_id'      => $survei->id,
-                    'nama_survei'    => $survei->nama_survei,
-                    'pml_id'         => $pml?->id,
-                    'nama_pml'       => $pml?->nama_pml ?? '-',
-                    'created_at'     => $pcl->created_at?->format('Y-m-d'),
+                    'id'                     => $pcl->id . '_' . $survei->id,
+                    'pcl_id'                 => $pcl->id,
+                    'nama_PCL'               => $pcl->nama_pcl,
+                    'tanggal_lahir'          => $pcl->tanggal_lahir,
+                    'tanggal_lahir_formatted' => $pcl->tanggal_lahir ? Carbon::parse($pcl->tanggal_lahir)->format('d-m-Y') : '-',
+                    'asal_kecamatan'         => $pcl->asal_kecamatan,
+                    'blok_sensus'            => $pcl->blok_sensus,
+                    'email'                  => $pcl->user->email ?? '-',
+                    'survei_id'              => $survei->id,
+                    'nama_survei'            => $survei->nama_survei,
+                    'pml_id'                 => $pml?->id,
+                    'nama_pml'               => $pml?->nama_pml ?? '-',
+                    'created_at'             => $pcl->created_at?->format('Y-m-d'),
                 ];
             }
         }

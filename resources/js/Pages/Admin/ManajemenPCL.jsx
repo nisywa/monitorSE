@@ -246,7 +246,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                                     </div>
                                                     <div>
                                                         <p className="font-medium text-gray-800">{pcl.nama_PCL}</p>
-                                                        <p className="text-xs text-gray-400">{pcl.tanggal_lahir}</p>
+                                                        <p className="text-xs text-gray-400">{pcl.tanggal_lahir_formatted}</p>
                                                     </div>
                                                 </div>
                                             </td>

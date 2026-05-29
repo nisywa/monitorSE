@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
@@ -73,20 +72,24 @@ class PmlSeeder extends Seeder
             $tanggalBagian = explode('-', $data['tanggal_lahir']);
             $password = $tanggalBagian[2] . $tanggalBagian[1] . $tanggalBagian[0];
 
-            // Buat user terlebih dahulu
-            $user = User::create([
-                'nama' => $data['nama'],
-                'email' => $data['email'],
-                'password' => Hash::make($password),
-                'role' => 'PML',
-            ]);
+            $user = User::firstOrCreate(
+                ['email' => $data['email']],
+                [
+                    'nama' => $data['nama'],
+                    'password' => Hash::make($password),
+                    'role' => 'PML',
+                ]
+            );
 
-            // Buat PML
-            Pml::create([
-                'user_id' => $user->id,
-                'nama_pml' => $data['nama'],
-                'tanggal_lahir' => $data['tanggal_lahir'],
-            ]);
+            Pml::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'nama_pml' => $data['nama'],
+                    'sobat_id' => 'SOBAT' . str_pad($user->id, 4, '0', STR_PAD_LEFT),
+                    'no_telp' => '0812345' . str_pad($user->id, 4, '0', STR_PAD_LEFT),
+                    'tanggal_lahir' => $data['tanggal_lahir'],
+                ]
+            );
         }
 
         $this->command->info('10 PML berhasil ditambahkan!');

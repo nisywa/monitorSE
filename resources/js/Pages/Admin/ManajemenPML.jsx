@@ -24,6 +24,8 @@ export default function ManajemenPML({ pmls }) {
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
         email: '',
+        sobat_id: '',
+        no_telp: '',
         tanggal_lahir: '',
     });
 
@@ -36,7 +38,13 @@ export default function ManajemenPML({ pmls }) {
 
     const openEdit = (pml) => {
         setEditData(pml);
-        setData({ nama: pml.nama_PML, email: pml.email, tanggal_lahir: pml.tanggal_lahir });
+        setData({
+            nama: pml.nama_PML,
+            email: pml.email,
+            sobat_id: pml.sobat_id || '',
+            no_telp: pml.no_telp || '',
+            tanggal_lahir: pml.tanggal_lahir,
+        });
         clearErrors();
         setShowModal(true);
     };
@@ -72,12 +80,14 @@ export default function ManajemenPML({ pmls }) {
         const exportData = filtered.map((pml, i) => ({
             'No': i + 1,
             'Nama PML': pml.nama_PML,
+            'Sobat ID': pml.sobat_id || '',
+            'No Telp': pml.no_telp || '',
             'Email': pml.email,
-            'Tanggal Lahir': pml.tanggal_lahir,
+            'Tanggal Lahir': pml.tanggal_lahir_formatted,
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
-        worksheet['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 35 }, { wch: 18 }];
+        worksheet['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 20 }, { wch: 18 }, { wch: 35 }, { wch: 18 }];
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Daftar PML');
         const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -87,10 +97,16 @@ export default function ManajemenPML({ pmls }) {
     // ── Download Template Import ──────────────────────────────────────────────
     const handleDownloadTemplate = () => {
         const templateData = [
-            { 'Nama PML': 'Contoh Nama', 'Email': 'contoh@email.com', 'Tanggal Lahir': '1990-05-20' },
+            {
+                'Nama PML': 'Contoh Nama',
+                'Sobat ID': 'SOBAT0012',
+                'No Telp': '081234567890',
+                'Email': 'contoh@email.com',
+                'Tanggal Lahir': '20-05-1990',
+            },
         ];
         const worksheet = XLSX.utils.json_to_sheet(templateData);
-        worksheet['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 18 }];
+        worksheet['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 18 }, { wch: 35 }, { wch: 18 }];
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Template PML');
         XLSX.writeFile(workbook, 'Template_Import_PML.xlsx');
@@ -111,6 +127,8 @@ export default function ManajemenPML({ pmls }) {
             const preview = rows.map((row, i) => {
                 const no = i + 1;
                 const nama = (row['Nama PML'] ?? '').toString().trim();
+                const sobat_id = (row['Sobat ID'] ?? '').toString().trim();
+                const no_telp = (row['No Telp'] ?? '').toString().trim();
                 const email = (row['Email'] ?? '').toString().trim();
 
                 // Normalisasi tanggal lahir (handle Date object, string, Excel serial)
@@ -128,16 +146,18 @@ export default function ManajemenPML({ pmls }) {
                     }
                 } else if (typeof raw === 'number') {
                     const d = XLSX.SSF.parse_date_code(raw);
-                    tanggal_lahir = `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+                    tanggal_lahir = `${d.d}-${String(d.m).padStart(2, '0')}-${String(d.y).padStart(2, '0')}`;
                 }
 
                 // Validasi per baris
                 if (!nama) errs.push(`Baris ${no}: Nama PML wajib diisi.`);
+                if (!sobat_id) errs.push(`Baris ${no}: Sobat ID wajib diisi.`);
+                if (!no_telp) errs.push(`Baris ${no}: No Telp wajib diisi.`);
                 if (!email) errs.push(`Baris ${no}: Email wajib diisi.`);
                 else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.push(`Baris ${no}: Format email tidak valid.`);
-                if (!tanggal_lahir) errs.push(`Baris ${no}: Tanggal Lahir tidak valid (gunakan YYYY-MM-DD atau DD/MM/YYYY).`);
+                if (!tanggal_lahir) errs.push(`Baris ${no}: Tanggal Lahir tidak valid (gunakan DD-MM-YYYY atau DD/MM/YYYY).`);
 
-                return { no, nama, email, tanggal_lahir };
+                return { no, nama, sobat_id, no_telp, email, tanggal_lahir };
             });
 
             setImportErrors(errs);
@@ -153,6 +173,8 @@ export default function ManajemenPML({ pmls }) {
         setImporting(true);
         const payload = importPreview.map(r => ({
             nama: r.nama,
+            sobat_id: r.sobat_id,
+            no_telp: r.no_telp,
             email: r.email,
             tanggal_lahir: r.tanggal_lahir,
         }));
@@ -179,7 +201,9 @@ export default function ManajemenPML({ pmls }) {
     // ── Filter ────────────────────────────────────────────────────────────────
     const filtered = pmls?.filter(p =>
         p.nama_PML.toLowerCase().includes(search.toLowerCase()) ||
-        p.email.toLowerCase().includes(search.toLowerCase())
+        p.email.toLowerCase().includes(search.toLowerCase()) ||
+        (p.sobat_id || '').toLowerCase().includes(search.toLowerCase()) ||
+        (p.no_telp || '').toLowerCase().includes(search.toLowerCase())
     ) ?? [];
 
     return (
@@ -258,6 +282,8 @@ export default function ManajemenPML({ pmls }) {
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama PML</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sobat ID</th>
+                                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No Telp</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal Lahir</th>
                                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
                             </tr>
@@ -265,7 +291,7 @@ export default function ManajemenPML({ pmls }) {
                         <tbody className="divide-y divide-gray-50">
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="text-center py-12 text-gray-400 text-sm">
+                                    <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
                                         {search ? 'Tidak ada hasil pencarian.' : 'Belum ada data PML.'}
                                     </td>
                                 </tr>
@@ -274,14 +300,16 @@ export default function ManajemenPML({ pmls }) {
                                     <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
                                     <td className="px-5 py-3.5">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-semibold flex-shrink-0">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-semibold shrink-0">
                                                 {pml.nama_PML.charAt(0).toUpperCase()}
                                             </div>
                                             <span className="font-medium text-gray-800">{pml.nama_PML}</span>
                                         </div>
                                     </td>
                                     <td className="px-5 py-3.5 text-gray-600">{pml.email}</td>
-                                    <td className="px-5 py-3.5 text-gray-600">{pml.tanggal_lahir}</td>
+                                    <td className="px-5 py-3.5 text-gray-600">{pml.sobat_id || '-'}</td>
+                                    <td className="px-5 py-3.5 text-gray-600">{pml.no_telp || '-'}</td>
+                                    <td className="px-5 py-3.5 text-gray-600">{pml.tanggal_lahir_formatted}</td>
                                     <td className="px-5 py-3.5">
                                         <div className="flex items-center justify-start gap-2">
                                             <button
@@ -329,6 +357,20 @@ export default function ManajemenPML({ pmls }) {
                         {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sobat ID</label>
+                        <input type="text" value={data.sobat_id} onChange={e => setData('sobat_id', e.target.value)}
+                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sobat_id ? 'border-red-300' : 'border-gray-200'}`}
+                            placeholder="Masukkan Sobat ID" />
+                        {errors.sobat_id && <p className="text-red-500 text-xs mt-1">{errors.sobat_id}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">No Telp</label>
+                        <input type="text" value={data.no_telp} onChange={e => setData('no_telp', e.target.value)}
+                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.no_telp ? 'border-red-300' : 'border-gray-200'}`}
+                            placeholder="Masukkan nomor telepon" />
+                        {errors.no_telp && <p className="text-red-500 text-xs mt-1">{errors.no_telp}</p>}
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Lahir</label>
                         <input type="date" value={data.tanggal_lahir} onChange={e => setData('tanggal_lahir', e.target.value)}
                             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.tanggal_lahir ? 'border-red-300' : 'border-gray-200'}`} />
@@ -356,8 +398,10 @@ export default function ManajemenPML({ pmls }) {
                         <p className="font-medium">Format kolom Excel yang diperlukan:</p>
                         <ul className="list-disc list-inside text-xs space-y-0.5 text-blue-600">
                             <li><strong>Nama PML</strong> — nama lengkap</li>
+                            <li><strong>Sobat ID</strong> — ID sobat / identitas internal</li>
+                            <li><strong>No Telp</strong> — nomor telepon aktif</li>
                             <li><strong>Email</strong> — alamat email unik</li>
-                            <li><strong>Tanggal Lahir</strong> — format YYYY-MM-DD atau DD/MM/YYYY</li>
+                            <li><strong>Tanggal Lahir</strong> — format DD-MM-YYYY atau DD/MM/YYYY</li>
                         </ul>
                         <button onClick={handleDownloadTemplate}
                             className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 underline hover:text-blue-900">
@@ -399,6 +443,8 @@ export default function ManajemenPML({ pmls }) {
                                         <tr>
                                             <th className="px-3 py-2 text-left text-gray-500">No</th>
                                             <th className="px-3 py-2 text-left text-gray-500">Nama PML</th>
+                                            <th className="px-3 py-2 text-left text-gray-500">Sobat ID</th>
+                                            <th className="px-3 py-2 text-left text-gray-500">No Telp</th>
                                             <th className="px-3 py-2 text-left text-gray-500">Email</th>
                                             <th className="px-3 py-2 text-left text-gray-500">Tanggal Lahir</th>
                                         </tr>
@@ -408,6 +454,8 @@ export default function ManajemenPML({ pmls }) {
                                             <tr key={i} className="hover:bg-gray-50">
                                                 <td className="px-3 py-2 text-gray-400">{row.no}</td>
                                                 <td className="px-3 py-2 text-gray-700">{row.nama}</td>
+                                                <td className="px-3 py-2 text-gray-700">{row.sobat_id}</td>
+                                                <td className="px-3 py-2 text-gray-700">{row.no_telp}</td>
                                                 <td className="px-3 py-2 text-gray-700">{row.email}</td>
                                                 <td className="px-3 py-2 text-gray-700">{row.tanggal_lahir}</td>
                                             </tr>

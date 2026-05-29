@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Models\User;
 use App\Models\Pml;
+use Carbon\Carbon;
 
 class PmlController extends Controller
 {
@@ -21,11 +22,14 @@ class PmlController extends Controller
             ->get()
             ->map(function ($pml) {
                 return [
-                    'id'            => $pml->id,
-                    'nama_PML'      => $pml->nama_pml,
-                    'tanggal_lahir' => $pml->tanggal_lahir,
-                    'email'         => $pml->user->email ?? '-',
-                    'total_pcl'     => $pml->pcls->count(),
+                    'id'                    => $pml->id,
+                    'nama_PML'              => $pml->nama_pml,
+                    'sobat_id'              => $pml->sobat_id,
+                    'no_telp'               => $pml->no_telp,
+                    'tanggal_lahir'         => $pml->tanggal_lahir,
+                    'tanggal_lahir_formatted'=> $pml->tanggal_lahir ? Carbon::parse($pml->tanggal_lahir)->format('d-m-Y') : '-',
+                    'email'                 => $pml->user->email ?? '-',
+                    'total_pcl'             => $pml->pcls->count(),
                 ];
             });
 
@@ -42,16 +46,20 @@ class PmlController extends Controller
         $request->validate([
             'nama'          => 'required|string|max:255',
             'email'         => 'required|email|unique:users,email',
+            'sobat_id'      => 'required|string|max:255',
+            'no_telp'       => 'required|string|max:255',
             'tanggal_lahir' => 'required|date',
         ], [
             'nama.required'          => 'Nama PML wajib diisi.',
             'email.required'         => 'Email wajib diisi.',
             'email.unique'           => 'Email sudah digunakan.',
+            'sobat_id.required'      => 'Sobat ID wajib diisi.',
+            'no_telp.required'       => 'No Telp wajib diisi.',
             'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
         ]);
 
         // Generate password otomatis dari tanggal lahir (format: DDMMYYYY)
-        $tanggalLahir = \Carbon\Carbon::createFromFormat('Y-m-d', $request->tanggal_lahir);
+        $tanggalLahir = Carbon::createFromFormat('Y-m-d', $request->tanggal_lahir);
         $password = $tanggalLahir->format('dmY');
 
         DB::transaction(function () use ($request, $password) {
@@ -65,6 +73,8 @@ class PmlController extends Controller
             Pml::create([
                 'user_id'       => $user->id,
                 'nama_pml'      => $request->nama,
+                'sobat_id'      => $request->sobat_id,
+                'no_telp'       => $request->no_telp,
                 'tanggal_lahir' => $request->tanggal_lahir,
             ]);
         });
@@ -82,6 +92,8 @@ class PmlController extends Controller
         return response()->json([
             'id'            => $pml->id,
             'nama_pml'      => $pml->nama_pml,
+            'sobat_id'      => $pml->sobat_id,
+            'no_telp'       => $pml->no_telp,
             'tanggal_lahir' => $pml->tanggal_lahir,
             'email'         => $pml->user->email,
         ]);
@@ -97,11 +109,15 @@ class PmlController extends Controller
         $request->validate([
             'nama'          => 'required|string|max:255',
             'email'         => 'required|email|unique:users,email,' . $pml->user->id,
+            'sobat_id'      => 'required|string|max:255',
+            'no_telp'       => 'required|string|max:255',
             'tanggal_lahir' => 'required|date',
         ], [
             'nama.required'          => 'Nama PML wajib diisi.',
             'email.required'         => 'Email wajib diisi.',
             'email.unique'           => 'Email sudah digunakan.',
+            'sobat_id.required'      => 'Sobat ID wajib diisi.',
+            'no_telp.required'       => 'No Telp wajib diisi.',
             'tanggal_lahir.required' => 'Tanggal lahir wajib diisi.',
         ]);
 
@@ -121,6 +137,8 @@ class PmlController extends Controller
 
             $pml->update([
                 'nama_pml'      => $request->nama,
+                'sobat_id'      => $request->sobat_id,
+                'no_telp'       => $request->no_telp,
                 'tanggal_lahir' => $request->tanggal_lahir,
             ]);
         });
@@ -156,11 +174,15 @@ class PmlController extends Controller
         $request->validate([
             'rows'                    => 'required|array|min:1',
             'rows.*.nama'             => 'required|string|max:255',
+            'rows.*.sobat_id'         => 'required|string|max:255',
+            'rows.*.no_telp'          => 'required|string|max:255',
             'rows.*.email'            => 'required|email|distinct|unique:users,email',
             'rows.*.tanggal_lahir'    => 'required|date',
         ], [
             'rows.required'              => 'Data import tidak boleh kosong.',
             'rows.*.nama.required'       => 'Nama PML wajib diisi.',
+            'rows.*.sobat_id.required'   => 'Sobat ID wajib diisi.',
+            'rows.*.no_telp.required'    => 'No Telp wajib diisi.',
             'rows.*.email.required'      => 'Email wajib diisi.',
             'rows.*.email.email'         => 'Format email tidak valid.',
             'rows.*.email.distinct'      => 'Terdapat email duplikat dalam file Excel.',
@@ -187,6 +209,8 @@ class PmlController extends Controller
                 Pml::create([
                     'user_id'       => $user->id,
                     'nama_pml'      => $row['nama'],
+                    'sobat_id'      => $row['sobat_id'],
+                    'no_telp'       => $row['no_telp'],
                     'tanggal_lahir' => $row['tanggal_lahir'],
                 ]);
 
