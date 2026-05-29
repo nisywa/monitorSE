@@ -59,6 +59,9 @@ Route::middleware('auth')->group(function () {
         // Manajemen PCL
         Route::get('/manajemen-pcl', [PclController::class, 'index'])->name('pcl.index');
         Route::post('/manajemen-pcl', [PclController::class, 'store'])->name('pcl.store');
+        Route::get('/manajemen-pcl/export/{surveiId}', [PclController::class, 'exportExcel'])->name('pcl.export');
+        Route::get('/manajemen-pcl/template', [PclController::class, 'downloadTemplate'])->name('pcl.template');
+        Route::post('/manajemen-pcl/import', [PclController::class, 'importExcel'])->name('pcl.import');
         Route::get('/manajemen-pcl/{id}', [PclController::class, 'show'])->name('pcl.show');
         Route::put('/manajemen-pcl/{id}', [PclController::class, 'update'])->name('pcl.update');
         Route::delete('/manajemen-pcl/{id}', [PclController::class, 'destroy'])->name('pcl.destroy');

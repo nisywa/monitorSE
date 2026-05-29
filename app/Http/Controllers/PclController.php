@@ -35,7 +35,10 @@ class PclController extends Controller
                 'tanggal_lahir'          => $pcl->tanggal_lahir,
                 'tanggal_lahir_formatted' => $pcl->tanggal_lahir ? Carbon::parse($pcl->tanggal_lahir)->format('d-m-Y') : '-',
                 'asal_kecamatan'         => $pcl->asal_kecamatan,
-                'blok_sensus'            => $pcl->blok_sensus,
+                'desa'                   => $pcl->desa,
+                'sls'                    => $pcl->sls,
+                'sobat_id'               => $pcl->sobat_id,
+                'no_telp'                => $pcl->no_telp,
                 'email'                  => $pcl->user->email ?? '-',
                 'survei_id'              => null,
                 'nama_survei'            => '-',
@@ -56,7 +59,10 @@ class PclController extends Controller
                     'tanggal_lahir'          => $pcl->tanggal_lahir,
                     'tanggal_lahir_formatted' => $pcl->tanggal_lahir ? Carbon::parse($pcl->tanggal_lahir)->format('d-m-Y') : '-',
                     'asal_kecamatan'         => $pcl->asal_kecamatan,
-                    'blok_sensus'            => $pcl->blok_sensus,
+                    'desa'                   => $pcl->desa,
+                    'sls'                    => $pcl->sls,
+                    'sobat_id'               => $pcl->sobat_id,
+                    'no_telp'                => $pcl->no_telp,
                     'email'                  => $pcl->user->email ?? '-',
                     'survei_id'              => $survei->id,
                     'nama_survei'            => $survei->nama_survei,
@@ -101,7 +107,10 @@ class PclController extends Controller
         'survei_id'      => 'required|exists:survei,id',
         'tanggal_lahir'  => 'required|date',
         'asal_kecamatan' => 'required|string|max:255',
-        'blok_sensus'    => 'required|string|max:255',
+        'desa'           => 'required|string|max:255',
+        'sls'            => 'nullable|string|max:255',
+        'sobat_id'       => 'nullable|string|max:255',
+        'no_telp'        => 'nullable|string|max:20',
     ], [
         'nama.required'           => 'Nama PCL wajib diisi.',
         'email.required'          => 'Email wajib diisi.',
@@ -109,7 +118,7 @@ class PclController extends Controller
         'survei_id.required'      => 'Survei wajib dipilih.',
         'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
         'asal_kecamatan.required' => 'Asal kecamatan wajib diisi.',
-        'blok_sensus.required'    => 'Blok sensus wajib diisi.',
+        'desa.required'           => 'Desa wajib diisi.',
     ]);
 
     $generatedPassword = date('dmY', strtotime($request->tanggal_lahir));
@@ -126,28 +135,31 @@ class PclController extends Controller
                 ]);
             }
 
-            // Ambil data PCL yang sudah ada
-            $pcl = Pcl::where('user_id', $user->id)->first();
+            // Jika user sudah ada, selalu buat PCL baru dengan data yang berbeda
+            // (Multiple PCL dengan email sama tapi data berbeda di kecamatan, desa, sls, sobat_id, no_telp)
+            $pcl = Pcl::create([
+                'user_id'        => $user->id,
+                'nama_pcl'       => $request->nama,
+                'tanggal_lahir'  => $request->tanggal_lahir,
+                'asal_kecamatan' => $request->asal_kecamatan,
+                'desa'           => $request->desa,
+                'sls'            => $request->sls,
+                'sobat_id'       => $request->sobat_id,
+                'no_telp'        => $request->no_telp,
+            ]);
 
-            if (!$pcl) {
-                // Jika user ada tapi data PCL belum, buat baru
-                $pcl = Pcl::create([
-                    'user_id'        => $user->id,
-                    'nama_pcl'       => $request->nama,
-                    'tanggal_lahir'  => $request->tanggal_lahir,
-                    'asal_kecamatan' => $request->asal_kecamatan,
-                    'blok_sensus'    => $request->blok_sensus,
-                ]);
-            }
+            // Cek apakah kombinasi PCL-Survei-PML ini sudah ada
+            $existingRelation = $pcl->surveis()
+                ->where('survei_id', $request->survei_id)
+                ->first();
 
-            // Cek apakah PCL ini sudah terdaftar di survei yang dipilih
-            if ($pcl->surveis()->where('survei_id', $request->survei_id)->exists()) {
+            if ($existingRelation) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'survei_id' => 'PCL ini sudah terdaftar di survei yang dipilih.',
                 ]);
             }
 
-            // Tambahkan relasi survei & PML baru (attach, bukan sync)
+            // Tambahkan relasi survei & PML baru
             $pcl->surveis()->attach($request->survei_id);
             $pcl->pmls()->attach($request->pml_id);
 
@@ -165,7 +177,10 @@ class PclController extends Controller
                 'nama_pcl'       => $request->nama,
                 'tanggal_lahir'  => $request->tanggal_lahir,
                 'asal_kecamatan' => $request->asal_kecamatan,
-                'blok_sensus'    => $request->blok_sensus,
+                'desa'           => $request->desa,
+                'sls'            => $request->sls,
+                'sobat_id'       => $request->sobat_id,
+                'no_telp'        => $request->no_telp,
             ]);
 
             $pcl->pmls()->attach($request->pml_id);
@@ -187,7 +202,10 @@ class PclController extends Controller
             'nama_pcl'       => $pcl->nama_pcl,
             'tanggal_lahir'  => $pcl->tanggal_lahir,
             'asal_kecamatan' => $pcl->asal_kecamatan,
-            'blok_sensus'    => $pcl->blok_sensus,
+            'desa'           => $pcl->desa,
+            'sls'            => $pcl->sls,
+            'sobat_id'       => $pcl->sobat_id,
+            'no_telp'        => $pcl->no_telp,
             'pml_id'         => $pcl->pmls->first()?->id,
             'survei_id'      => $pcl->surveis->first()?->id,
             'email'          => $pcl->user->email,
@@ -208,7 +226,10 @@ class PclController extends Controller
             'survei_id'      => 'required|exists:survei,id',
             'tanggal_lahir'  => 'required|date',
             'asal_kecamatan' => 'required|string|max:255',
-            'blok_sensus'    => 'required|string|max:255',
+            'desa'           => 'required|string|max:255',
+            'sls'            => 'nullable|string|max:255',
+            'sobat_id'       => 'nullable|string|max:255',
+            'no_telp'        => 'nullable|string|max:20',
             'password'       => 'nullable|min:6',
         ], [
             'nama.required'           => 'Nama PCL wajib diisi.',
@@ -220,7 +241,7 @@ class PclController extends Controller
             'survei_id.exists'        => 'Survei tidak ditemukan.',
             'tanggal_lahir.required'  => 'Tanggal lahir wajib diisi.',
             'asal_kecamatan.required' => 'Asal kecamatan wajib diisi.',
-            'blok_sensus.required'    => 'Blok sensus wajib diisi.',
+            'desa.required'           => 'Desa wajib diisi.',
             'password.min'            => 'Password minimal 6 karakter.',
         ]);
 
@@ -240,7 +261,10 @@ class PclController extends Controller
                 'nama_pcl'       => $request->nama,
                 'tanggal_lahir'  => $request->tanggal_lahir,
                 'asal_kecamatan' => $request->asal_kecamatan,
-                'blok_sensus'    => $request->blok_sensus,
+                'desa'           => $request->desa,
+                'sls'            => $request->sls,
+                'sobat_id'       => $request->sobat_id,
+                'no_telp'        => $request->no_telp,
             ]);
 
             // Update relasi dengan PML (sync untuk replace)
@@ -265,5 +289,147 @@ class PclController extends Controller
         });
 
         return redirect()->back()->with('success', 'Data PCL berhasil dihapus.');
+    }
+
+    /**
+     * Get data PCL untuk export (JSON)
+     */
+    public function exportExcel($surveiId)
+    {
+        $pcls = Pcl::with(['user', 'surveis', 'pmls'])
+            ->whereHas('surveis', function ($query) use ($surveiId) {
+                $query->where('survei_id', $surveiId);
+            })
+            ->get();
+
+        $survei = Survei::findOrFail($surveiId);
+        
+        $data = $pcls->map(function ($pcl) {
+            return [
+                'Nama PCL'     => $pcl->nama_pcl,
+                'Email'        => $pcl->user->email ?? '',
+                'Tanggal Lahir' => $pcl->tanggal_lahir,
+                'Asal Kecamatan' => $pcl->asal_kecamatan,
+                'Desa'         => $pcl->desa,
+                'SLS'          => $pcl->sls ?? '',
+                'Sobat ID'     => $pcl->sobat_id ?? '',
+                'No Telepon'   => $pcl->no_telp ?? '',
+                'PML'          => $pcl->pmls->first()?->nama_pml ?? '',
+            ];
+        })->toArray();
+
+        return response()->json([
+            'data' => $data,
+            'survei_name' => $survei->nama_survei,
+        ]);
+    }
+
+    /**
+     * Import data PCL dari Excel (dikirim sebagai JSON rows dari frontend)
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'rows'                      => 'required|array|min:1',
+            'rows.*.nama_pcl'           => 'required|string|max:255',
+            'rows.*.email'              => 'required|email|distinct',
+            'rows.*.tanggal_lahir'      => 'required|date_format:Y-m-d',
+            'rows.*.asal_kecamatan'     => 'required|string|max:255',
+            'rows.*.desa'               => 'required|string|max:255',
+            'rows.*.sls'                => 'nullable|string|max:255',
+            'rows.*.sobat_id'           => 'nullable|string|max:255',
+            'rows.*.no_telepon'         => 'nullable|string|max:255',
+            'rows.*.pml'                => 'nullable|string|max:255',
+            'survei_id'                 => 'required|exists:survei,id',
+        ], [
+            'rows.required'                    => 'Data import tidak boleh kosong.',
+            'rows.*.nama_pcl.required'         => 'Nama PCL wajib diisi.',
+            'rows.*.email.required'            => 'Email wajib diisi.',
+            'rows.*.email.email'               => 'Format email tidak valid.',
+            'rows.*.email.distinct'            => 'Terdapat email duplikat dalam file Excel.',
+            'rows.*.tanggal_lahir.required'    => 'Tanggal lahir wajib diisi.',
+            'rows.*.tanggal_lahir.date_format' => 'Format tanggal lahir harus YYYY-MM-DD.',
+            'rows.*.asal_kecamatan.required'   => 'Asal kecamatan wajib diisi.',
+            'rows.*.desa.required'             => 'Desa wajib diisi.',
+            'survei_id.required'               => 'Survei ID wajib diisi.',
+            'survei_id.exists'                 => 'Survei tidak ditemukan.',
+        ]);
+
+        $rows = $request->rows;
+        $surveiId = $request->survei_id;
+        $berhasil = 0;
+
+        try {
+            DB::transaction(function () use ($rows, $surveiId, &$berhasil) {
+                foreach ($rows as $row) {
+                    $email = strtolower(trim($row['email']));
+                    
+                    // Cari atau buat user
+                    $user = User::where('email', $email)->first();
+                    
+                    if (!$user) {
+                        $generatedPassword = date('dmY', strtotime($row['tanggal_lahir']));
+                        $user = User::create([
+                            'nama'     => $row['nama_pcl'],
+                            'email'    => $email,
+                            'password' => Hash::make($generatedPassword),
+                            'role'     => 'PCL',
+                        ]);
+                    }
+
+                    // Pastikan role PCL
+                    if ($user->role !== 'PCL') {
+                        throw new \Exception('User dengan email ' . $email . ' memiliki role yang berbeda.');
+                    }
+
+                    // Buat PCL baru (multiple PCL per user diizinkan)
+                    $pcl = Pcl::create([
+                        'user_id'        => $user->id,
+                        'nama_pcl'       => $row['nama_pcl'],
+                        'tanggal_lahir'  => $row['tanggal_lahir'],
+                        'asal_kecamatan' => $row['asal_kecamatan'],
+                        'desa'           => $row['desa'],
+                        'sls'            => !empty($row['sls']) ? $row['sls'] : null,
+                        'sobat_id'       => !empty($row['sobat_id']) ? $row['sobat_id'] : null,
+                        'no_telp'        => !empty($row['no_telepon']) ? $row['no_telepon'] : null,
+                    ]);
+
+                    // Attach ke survei
+                    $pcl->surveis()->attach($surveiId);
+
+                    // Attach ke PML jika ada
+                    if (!empty($row['pml'])) {
+                        $pmlName = trim($row['pml']);
+                        $pml = Pml::where('nama_pml', $pmlName)
+                                  ->orWhere('nama_pml', 'like', '%' . $pmlName . '%')
+                                  ->first();
+                        if ($pml) {
+                            $pcl->pmls()->attach($pml->id);
+                        }
+                    }
+
+                    $berhasil++;
+                }
+            });
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Data PCL berhasil diimport. $berhasil baris berhasil ditambahkan.",
+                    'imported' => $berhasil,
+                ]);
+            }
+
+            return redirect()->back()->with('success', "Data PCL berhasil diimport. $berhasil baris berhasil ditambahkan.");
+        } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengimport file: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', 'Gagal mengimport file: ' . $e->getMessage());
+        }
     }
 }

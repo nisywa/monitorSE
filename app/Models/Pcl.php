@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Pcl extends Model
 {
     protected $table = 'pcl';
-    protected $fillable = ['user_id', 'nama_pcl', 'tanggal_lahir', 'asal_kecamatan', 'blok_sensus'];
+    protected $fillable = ['user_id', 'nama_pcl', 'tanggal_lahir', 'asal_kecamatan', 'desa', 'sls', 'sobat_id', 'no_telp'];
 
     // One-to-One: 1 PCL : 1 User
     public function user()

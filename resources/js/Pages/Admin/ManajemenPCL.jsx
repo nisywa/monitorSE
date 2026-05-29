@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
@@ -9,6 +10,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [search, setSearch] = useState('');
     const [selectedSurveiId, setSelectedSurveiId] = useState('');
     const [selectedPmlName, setSelectedPmlName] = useState('');
+    const [importLoading, setImportLoading] = useState(false);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
@@ -17,14 +19,16 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         survei_id: '',
         tanggal_lahir: '',
         asal_kecamatan: '',
-        blok_sensus: '',
+        desa: '',
+        sls: '',
+        sobat_id: '',
+        no_telp: '',
     });
 
     const openAdd = () => {
         setEditData(null);
         reset();
         clearErrors();
-        // Isi otomatis survei_id dari survei yang sedang dipilih
         if (selectedSurveiId) {
             setData('survei_id', selectedSurveiId);
         }
@@ -43,7 +47,10 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                 survei_id: pclData.survei_id || '',
                 tanggal_lahir: pclData.tanggal_lahir,
                 asal_kecamatan: pclData.asal_kecamatan,
-                blok_sensus: pclData.blok_sensus,
+                desa: pclData.desa,
+                sls: pclData.sls,
+                sobat_id: pclData.sobat_id,
+                no_telp: pclData.no_telp,
             });
             clearErrors();
             setShowModal(true);
@@ -71,41 +78,185 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         }
     };
 
-    // Reset pml_id ketika survei_id di form berubah
+    const handleExportExcel = async () => {
+        if (!selectedSurveiId) return;
+        try {
+            const res = await fetch(`/manajemen-pcl/export/${selectedSurveiId}`, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error('Failed to fetch export data');
+            const json = await res.json();
+            const data = json.data || [];
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            worksheet['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 25 }];
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, json.survei_name || 'PCL');
+            const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            XLSX.writeFile(workbook, `PCL_${(json.survei_name || 'Survei')}_${today}.xlsx`);
+        } catch (err) {
+            console.error(err);
+            alert('Gagal men-generate file export: ' + err.message);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const templateData = [
+            {
+                'Nama PCL': 'Contoh Nama',
+                'Email': 'contoh@example.com',
+                'Tanggal Lahir': '1990-05-15',
+                'Asal Kecamatan': 'Kecamatan A',
+                'Desa': 'Desa A',
+                'SLS': '001.01.01',
+                'Sobat ID': 'SOBAT0001',
+                'No Telepon': '081234567890',
+                'PML': 'Nama PML'
+            }
+        ];
+        const worksheet = XLSX.utils.json_to_sheet(templateData);
+        worksheet['!cols'] = [{ wch: 30 }, { wch: 35 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 25 }];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Template PCL');
+        XLSX.writeFile(workbook, 'Template_Import_PCL.xlsx');
+    };
+
+    const handleImportExcel = (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedSurveiId) {
+            alert('Pilih file dan survei terlebih dahulu');
+            e.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const workbook = XLSX.read(evt.target.result, { type: 'binary', cellDates: true });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                const payload = [];
+                const errors = [];
+
+                rows.forEach((row, idx) => {
+                    const no = idx + 1;
+                    const nama = (row['Nama PCL'] ?? '').toString().trim();
+                    const email = (row['Email'] ?? '').toString().trim();
+                    let tanggal = row['Tanggal Lahir'];
+                    if (tanggal instanceof Date) {
+                        tanggal = tanggal.toISOString().slice(0, 10);
+                    } else if (typeof tanggal === 'number') {
+                        const d = XLSX.SSF.parse_date_code(tanggal);
+                        tanggal = `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+                    } else if (typeof tanggal === 'string') {
+                        const s = tanggal.trim();
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) tanggal = s;
+                        else if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(s)) {
+                            const parts = s.split(/[\/\-]/);
+                            tanggal = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        } else tanggal = '';
+                    }
+
+                    const kec = (row['Asal Kecamatan'] ?? '').toString().trim();
+                    const desa = (row['Desa'] ?? '').toString().trim();
+                    const sls = (row['SLS'] ?? '').toString().trim();
+                    const sobat = (row['Sobat ID'] ?? '').toString().trim();
+                    const notelp = (row['No Telepon'] ?? '').toString().trim();
+                    const pml = (row['PML'] ?? '').toString().trim();
+
+                    if (!nama) errors.push(`Baris ${no}: Nama PCL wajib diisi.`);
+                    if (!email) errors.push(`Baris ${no}: Email wajib diisi.`);
+                    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push(`Baris ${no}: Format email tidak valid.`);
+                    if (!tanggal) errors.push(`Baris ${no}: Tanggal Lahir tidak valid.`);
+                    if (!kec) errors.push(`Baris ${no}: Asal Kecamatan wajib diisi.`);
+                    if (!desa) errors.push(`Baris ${no}: Desa wajib diisi.`);
+
+                    payload.push({
+                        nama_pcl: nama,
+                        email: email,
+                        tanggal_lahir: tanggal,
+                        asal_kecamatan: kec,
+                        desa: desa,
+                        sls: sls || null,
+                        sobat_id: sobat || null,
+                        no_telepon: notelp || null,
+                        pml: pml || null,
+                    });
+                });
+
+                if (errors.length > 0) {
+                    alert('Validasi gagal:\n' + errors.join('\n'));
+                    setImportLoading(false);
+                    e.target.value = '';
+                    return;
+                }
+
+                // Send to backend
+                const token = document.querySelector('meta[name="csrf-token"]')?.content || window.csrf_token || document.querySelector('input[name="_token"]')?.value;
+                const res = await fetch('/manajemen-pcl/import', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ rows: payload, survei_id: selectedSurveiId }),
+                });
+
+                const contentType = res.headers.get('content-type') || '';
+                let result;
+                if (contentType.includes('application/json')) {
+                    result = await res.json();
+                } else {
+                    const text = await res.text();
+                    throw new Error('Server returned non-JSON response: ' + text.slice(0, 300));
+                }
+
+                setImportLoading(false);
+                e.target.value = '';
+                if (res.ok && result.success) {
+                    alert('✓ ' + result.message);
+                    setTimeout(() => window.location.reload(), 800);
+                } else {
+                    alert('✗ Error: ' + (result.message || 'Gagal import data'));
+                }
+            } catch (err) {
+                console.error(err);
+                setImportLoading(false);
+                e.target.value = '';
+                alert('Gagal membaca file: ' + err.message);
+            }
+        };
+        reader.readAsBinaryString(file);
+        setImportLoading(true);
+    };
+
     useEffect(() => {
         setData('pml_id', '');
     }, [data.survei_id]);
 
-    // Reset selectedPmlName ketika selectedSurveiId berubah
     useEffect(() => {
         setSelectedPmlName('');
         setSearch('');
     }, [selectedSurveiId]);
 
-    // PML yang difilter berdasarkan survei di form modal
     const filteredPmls = pmls?.filter(pml =>
         (!data.survei_id || (pml.survei_ids && pml.survei_ids.includes(parseInt(data.survei_id))))
     ) ?? [];
 
-    // Filter tabel berdasarkan survei yang dipilih di halaman
     const pclBySurvei = selectedSurveiId
         ? pcls?.filter(p => String(p.survei_id) === String(selectedSurveiId)) ?? []
         : [];
 
-    // Filter berdasarkan search dan nama PML
     const filtered = pclBySurvei.filter(p => {
         const query = search.toLowerCase();
         const matchesSearch =
             p.nama_PCL.toLowerCase().includes(query) ||
             p.email.toLowerCase().includes(query) ||
             p.asal_kecamatan.toLowerCase().includes(query);
-
         const matchesPml = !selectedPmlName || p.nama_pml === selectedPmlName;
-
         return matchesSearch && matchesPml;
     });
 
-    // Daftar nama PML yang sesuai dengan survei yang dipilih
     const pmlOptions = selectedSurveiId
         ? pmls?.filter(pml => pml.survei_ids?.includes(parseInt(selectedSurveiId)))
              .map(pml => pml.nama_PML)
@@ -113,7 +264,6 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
              .sort()
         : [];
 
-    // Nama survei yang sedang dipilih (untuk ditampilkan di heading)
     const selectedSurveiLabel = surveis?.find(s => String(s.id) === String(selectedSurveiId))?.nama_survei ?? '';
 
     return (
@@ -161,9 +311,49 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                 </select>
             </div>
 
-            {/* Konten: tampil hanya setelah survei dipilih */}
+            {/* Action Buttons - Export & Import */}
+            {selectedSurveiId && (
+                <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
+                    <div className="flex flex-col md:flex-row gap-3">
+                        <button
+                            onClick={handleExportExcel}
+                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                            Export Excel
+                        </button>
+
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download Template
+                        </button>
+
+                        <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            {importLoading ? 'Importing...' : 'Import Excel'}
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                onChange={handleImportExcel}
+                                disabled={importLoading}
+                                className="hidden"
+                            />
+                        </label>
+                    </div>
+                </div>
+            )}
+
+            {/* Konten */}
             {!selectedSurveiId ? (
-                /* Placeholder */
                 <div className="bg-white rounded-xl border border-gray-100 p-16 flex flex-col items-center justify-center text-center gap-3">
                     <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2">
                         <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,16 +384,15 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                     className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
-
                             <div className="min-w-0 md:max-w-xs">
-                                <label className="sr-only"> PML</label>
+                                <label className="sr-only">Filter PML</label>
                                 <select
                                     value={selectedPmlName}
                                     onChange={e => setSelectedPmlName(e.target.value)}
                                     disabled={!selectedSurveiId}
                                     className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
                                 >
-                                    <option value="">{selectedSurveiId ? '--  Filter PML --' : 'Pilih survei terlebih dahulu'}</option>
+                                    <option value="">{selectedSurveiId ? '-- Filter PML --' : 'Pilih survei terlebih dahulu'}</option>
                                     {selectedSurveiId && pmlOptions.map(pmlName => (
                                         <option key={pmlName} value={pmlName}>{pmlName}</option>
                                     ))}
@@ -212,7 +401,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                         </div>
                     </div>
 
-                    {/* Table */}
+                    {/* Tabel */}
                     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -223,14 +412,17 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">PML</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
-                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Blok Sensus</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Desa</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
+                                        {/* <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sobat ID</th> */}
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No Telp</th>
                                         <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {filtered.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
+                                            <td colSpan={10} className="text-center py-12 text-gray-400 text-sm">
                                                 {search
                                                     ? 'Tidak ada hasil pencarian.'
                                                     : `Belum ada PCL terdaftar di survei ${selectedSurveiLabel}.`}
@@ -261,8 +453,11 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                                 )}
                                             </td>
                                             <td className="px-5 py-3.5 text-gray-600">{pcl.asal_kecamatan}</td>
-                                            <td className="px-5 py-3.5 text-gray-600">{pcl.blok_sensus}</td>
-                                            <td className="px-5 py-3.5 text-right">
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.desa}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.sls || '-'}</td>
+                                            {/* <td className="px-5 py-3.5 text-gray-600">{pcl.sobat_id || '-'}</td> */}
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.no_telp || '-'}</td>
+                                            <td className="px-5 py-3.5">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button onClick={() => openEdit({ id: pcl.pcl_id })}
                                                         className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
@@ -293,6 +488,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
             <Modal show={showModal} onClose={() => setShowModal(false)}
                 title={editData ? 'Edit Data PCL' : 'Tambah PCL Baru'} maxWidth="2xl">
                 <form onSubmit={handleSubmit} className="space-y-5">
+
                     {/* Informasi Dasar */}
                     <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-gray-700">Informasi Dasar</h3>
@@ -311,11 +507,6 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-300' : 'border-gray-200'}`}
                                     placeholder="Email" />
                                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                                {!editData && (
-                                    <p className="text-xs text-gray-400 mt-1">
-                                        {/* 💡 Jika PCL sudah pernah terdaftar, masukkan email yang sama untuk menambahkan ke survei baru. */}
-                                    </p>
-                                )}
                             </div>
 
                             <div>
@@ -334,11 +525,35 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Blok Sensus</label>
-                                <input type="text" value={data.blok_sensus} onChange={e => setData('blok_sensus', e.target.value)}
-                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.blok_sensus ? 'border-red-300' : 'border-gray-200'}`}
-                                    placeholder="Kode blok sensus" />
-                                {errors.blok_sensus && <p className="text-red-500 text-xs mt-1">{errors.blok_sensus}</p>}
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Desa</label>
+                                <input type="text" value={data.desa} onChange={e => setData('desa', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Nama desa" />
+                                {errors.desa && <p className="text-red-500 text-xs mt-1">{errors.desa}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">SLS</label>
+                                <input type="text" value={data.sls} onChange={e => setData('sls', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Kode SLS" />
+                                {errors.sls && <p className="text-red-500 text-xs mt-1">{errors.sls}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sobat ID</label>
+                                <input type="text" value={data.sobat_id} onChange={e => setData('sobat_id', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sobat_id ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="ID SOBAT" />
+                                {errors.sobat_id && <p className="text-red-500 text-xs mt-1">{errors.sobat_id}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">No Telepon</label>
+                                <input type="text" value={data.no_telp} onChange={e => setData('no_telp', e.target.value)}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.no_telp ? 'border-red-300' : 'border-gray-200'}`}
+                                    placeholder="Nomor telepon" />
+                                {errors.no_telp && <p className="text-red-500 text-xs mt-1">{errors.no_telp}</p>}
                             </div>
                         </div>
                     </div>
@@ -361,7 +576,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                         </div>
                     </div>
 
-                    {/* Pilih PML — hanya tampil setelah survei dipilih */}
+                    {/* Pilih PML */}
                     {data.survei_id && (
                         <div className="space-y-3 border-t pt-4">
                             <div>
