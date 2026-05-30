@@ -15,6 +15,7 @@ use App\Http\Controllers\PmlController;
 use App\Http\Controllers\PclController;
 use App\Http\Controllers\SurveiController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\WilayahKerjaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
     Route::get('/api/dashboard/chart-data-by-pml', [DashboardController::class, 'getChartDataByPml'])->name('dashboard.chart-data-by-pml');
+    Route::get('/api/dashboard/stats-by-location', [DashboardController::class, 'getStatsByLocation'])->name('dashboard.stats-by-location');
 
     /*
     |------------------------------------------------------------------
@@ -75,7 +77,30 @@ Route::middleware('auth')->group(function () {
         Route::get('/manajemen-survei/{id}', [SurveiController::class, 'show'])->name('survei.show');
         Route::put('/manajemen-survei/{id}', [SurveiController::class, 'update'])->name('survei.update');
         Route::delete('/manajemen-survei/{id}', [SurveiController::class, 'destroy'])->name('survei.destroy');
+
+        // Wilayah Kerja
+        Route::get('/wilayah-kerja', [WilayahKerjaController::class, 'index'])->name('wilayah-kerja.index');
+        
+        // Kecamatan CRUD
+        Route::post('/api/wilayah-kerja/kecamatan', [WilayahKerjaController::class, 'storeKecamatan'])->name('kecamatan.store');
+        Route::put('/api/wilayah-kerja/kecamatan/{id}', [WilayahKerjaController::class, 'updateKecamatan'])->name('kecamatan.update');
+        Route::delete('/api/wilayah-kerja/kecamatan/{id}', [WilayahKerjaController::class, 'destroyKecamatan'])->name('kecamatan.destroy');
+        
+        // Desa CRUD
+        Route::post('/api/wilayah-kerja/desa', [WilayahKerjaController::class, 'storeDesa'])->name('desa.store');
+        Route::put('/api/wilayah-kerja/desa/{id}', [WilayahKerjaController::class, 'updateDesa'])->name('desa.update');
+        Route::delete('/api/wilayah-kerja/desa/{id}', [WilayahKerjaController::class, 'destroyDesa'])->name('desa.destroy');
+        
+        // SLS CRUD
+        Route::post('/api/wilayah-kerja/sls', [WilayahKerjaController::class, 'storeSls'])->name('sls.store');
+        Route::put('/api/wilayah-kerja/sls/{id}', [WilayahKerjaController::class, 'updateSls'])->name('sls.update');
+        Route::delete('/api/wilayah-kerja/sls/{id}', [WilayahKerjaController::class, 'destroySls'])->name('sls.destroy');
     });
+
+    // Wilayah Kerja API untuk dropdown kecamatan/desa/sls (PCL juga bisa akses)
+    Route::get('/api/wilayah-kerja/kecamatan-list', [WilayahKerjaController::class, 'getKecamatanList'])->name('wilayah-kerja.kecamatan-list');
+    Route::get('/api/wilayah-kerja/desa/{kecamatanId}', [WilayahKerjaController::class, 'getDesaByKecamatan'])->name('wilayah-kerja.desa');
+    Route::get('/api/wilayah-kerja/sls/{desaId}', [WilayahKerjaController::class, 'getSlsByDesa'])->name('wilayah-kerja.sls');
 
     /*
     |------------------------------------------------------------------

@@ -10,6 +10,9 @@ use App\Models\Laporan;
 use App\Models\Survei;
 use App\Models\Pcl;
 use App\Models\Pml;
+use App\Models\Kecamatan;
+use App\Models\Desa;
+use App\Models\Sls;
 
 class LaporanController extends Controller
 {
@@ -23,7 +26,7 @@ class LaporanController extends Controller
     public function index()
     {
         $user  = Auth::user();
-        $query = Laporan::with(['survei', 'pcl', 'pml']);
+        $query = Laporan::with(['survei', 'pcl', 'pml', 'kecamatan', 'desa', 'sls']);
 
         if ($user->role === 'PML') {
             $pml   = $user->pml;
@@ -37,24 +40,31 @@ class LaporanController extends Controller
             ->get()
             ->map(function ($laporan) {
                 return [
-                    'id'           => $laporan->id,
-                    'nama_survei'  => $laporan->survei->nama_survei ?? '-',
-                    'survei_id'    => $laporan->survei_id,
-                    'nama_pcl'     => $laporan->pcl->nama_pcl ?? '-',
-                    'pcl_id'       => $laporan->pcl_id,
-                    'nama_pml'     => $laporan->pml->nama_pml ?? '-',
-                    'pml_id'       => $laporan->pml_id,
-                    'tanggal'      => $laporan->tanggal,
-                    'data_usaha'   => $laporan->data_usaha,
-                    'data_keluarga'=> $laporan->data_keluarga,
-                    'data_submit'  => $laporan->data_submit,
-                    'survei_status' => $this->getStatus($laporan->survei->tanggal_mulai, $laporan->survei->tanggal_selesai),
+                    'id'             => $laporan->id,
+                    'nama_survei'    => $laporan->survei->nama_survei ?? '-',
+                    'survei_id'      => $laporan->survei_id,
+                    'nama_pcl'       => $laporan->pcl->nama_pcl ?? '-',
+                    'pcl_id'         => $laporan->pcl_id,
+                    'nama_pml'       => $laporan->pml->nama_pml ?? '-',
+                    'pml_id'         => $laporan->pml_id,
+                    'tanggal'        => $laporan->tanggal,
+                    'data_usaha'     => $laporan->data_usaha,
+                    'data_keluarga'  => $laporan->data_keluarga,
+                    'data_submit'    => $laporan->data_submit,
+                    'kecamatan_id'   => $laporan->kecamatan_id,
+                    'desa_id'        => $laporan->desa_id,
+                    'sls_id'         => $laporan->sls_id,
+                    'nama_kecamatan' => $laporan->kecamatan->nama ?? '-',
+                    'nama_desa'      => $laporan->desa->nama ?? '-',
+                    'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
+                    'survei_status'  => $this->getStatus($laporan->survei->tanggal_mulai, $laporan->survei->tanggal_selesai),
                 ];
             });
 
-        // Data untuk dropdown form tambah laporan (PCL)
+        // Data untuk dropdown form tambah laporan (PCL) dan filter PCL bagi PML
         $surveis = [];
         $pmlBySurvei = [];
+        $pclsBySurvei = [];
 
         if ($user->role === 'PCL') {
             $pcl     = $user->pcl;
@@ -96,6 +106,28 @@ class LaporanController extends Controller
                 $surveis = $directSurveis->merge($pclSurveis)
                     ->unique('id')
                     ->values();
+
+                $pclsBySurvei = $pml->pcls()
+                    ->whereHas('surveis', function ($query) use ($surveis) {
+                        $query->whereIn('survei.id', $surveis->pluck('id'));
+                    })
+                    ->with('surveis:id')
+                    ->get()
+                    ->flatMap(function ($pcl) {
+                        return $pcl->surveis->map(fn ($survei) => [
+                            'survei_id' => $survei->id,
+                            'pcl_id'    => $pcl->id,
+                            'nama_pcl'  => $pcl->nama_pcl,
+                        ]);
+                    })
+                    ->groupBy('survei_id')
+                    ->map(function ($items) {
+                        return $items->unique('pcl_id')->map(fn ($item) => [
+                            'id'       => $item['pcl_id'],
+                            'nama_pcl' => $item['nama_pcl'],
+                        ])->values();
+                    })
+                    ->toArray();
             } else {
                 $surveis = collect();
             }
@@ -107,6 +139,7 @@ class LaporanController extends Controller
             'laporans'     => $laporans,
             'surveis'      => $surveis,
             'pmlBySurvei'  => $pmlBySurvei,
+            'pclsBySurvei' => $pclsBySurvei,
             'role'         => $user->role,
         ]);
     }
@@ -124,6 +157,9 @@ class LaporanController extends Controller
         $request->validate([
             'survei_id'    => 'required|exists:survei,id',
             'pml_id'       => 'required|exists:pml,id',
+            'kecamatan_id' => 'required|exists:kecamatan,id',
+            'desa_id'      => 'required|exists:desa,id',
+            'sls_id'       => 'required|exists:sls,id',
             'tanggal'      => 'required|date',
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
@@ -138,11 +174,24 @@ class LaporanController extends Controller
             'data_usaha.integer'     => 'Data usaha harus berupa angka.',
             'data_keluarga.required' => 'Data keluarga wajib diisi.',
             'data_keluarga.integer'  => 'Data keluarga harus berupa angka.',
+            'sls_id.required'         => 'SLS wajib dipilih.',
+            'sls_id.exists'           => 'SLS tidak ditemukan.',
             'data_submit.required'   => 'Data submit wajib diisi.',
             'data_submit.integer'    => 'Data submit harus berupa angka.',
         ]);
 
         $survei = Survei::findOrFail($request->survei_id);
+        $kecamatan = Kecamatan::findOrFail($request->kecamatan_id);
+        $desa = Desa::findOrFail($request->desa_id);
+        $sls = Sls::findOrFail($request->sls_id);
+
+        if (!Desa::where('id', $request->desa_id)->where('kecamatan_id', $request->kecamatan_id)->exists()) {
+            return redirect()->back()->withErrors(['desa_id' => 'Desa tidak valid untuk kecamatan yang dipilih.']);
+        }
+
+        if (!Sls::where('id', $request->sls_id)->where('desa_id', $request->desa_id)->exists()) {
+            return redirect()->back()->withErrors(['sls_id' => 'SLS tidak valid untuk desa yang dipilih.']);
+        }
 
         if ($user->role === 'PCL' && $pcl) {
             $validPml = $pcl->pmls()
@@ -156,13 +205,19 @@ class LaporanController extends Controller
         }
 
         Laporan::create([
-            'survei_id'    => $request->survei_id,
-            'pcl_id'       => $pcl?->id,
-            'pml_id'       => $request->pml_id,
-            'tanggal'      => $request->tanggal,
-            'data_usaha'   => $request->data_usaha,
-            'data_keluarga'=> $request->data_keluarga,
-            'data_submit'  => $request->data_submit,
+            'survei_id'      => $request->survei_id,
+            'pcl_id'         => $pcl?->id,
+            'pml_id'         => $request->pml_id,
+            'kecamatan_id'   => $request->kecamatan_id,
+            'desa_id'        => $request->desa_id,
+            'sls_id'         => $request->sls_id,
+            'nama_kecamatan' => $kecamatan->nama,
+            'nama_desa'      => $desa->nama,
+            'nomor_sls'      => $sls->nomor_sls,
+            'tanggal'        => $request->tanggal,
+            'data_usaha'     => $request->data_usaha,
+            'data_keluarga'  => $request->data_keluarga,
+            'data_submit'    => $request->data_submit,
         ]);
 
         return redirect()->back()->with('success', 'Laporan berhasil ditambahkan.');
@@ -176,17 +231,23 @@ class LaporanController extends Controller
         $laporan = Laporan::with(['survei', 'pcl', 'pml'])->findOrFail($id);
 
         return response()->json([
-            'id'           => $laporan->id,
-            'survei_id'    => $laporan->survei_id,
-            'nama_survei'  => $laporan->survei->nama_survei ?? '-',
-            'pcl_id'       => $laporan->pcl_id,
-            'nama_pcl'     => $laporan->pcl->nama_pcl ?? '-',
-            'pml_id'       => $laporan->pml_id,
-            'nama_pml'     => $laporan->pml->nama_PML ?? '-',
-            'tanggal'      => $laporan->tanggal,
-            'data_usaha'   => $laporan->data_usaha,
-            'data_keluarga'=> $laporan->data_keluarga,
-            'data_submit'  => $laporan->data_submit,
+            'id'             => $laporan->id,
+            'survei_id'      => $laporan->survei_id,
+            'nama_survei'    => $laporan->survei->nama_survei ?? '-',
+            'pcl_id'         => $laporan->pcl_id,
+            'nama_pcl'       => $laporan->pcl->nama_pcl ?? '-',
+            'pml_id'         => $laporan->pml_id,
+            'nama_pml'       => $laporan->pml->nama_PML ?? '-',
+            'kecamatan_id'   => $laporan->kecamatan_id,
+            'desa_id'        => $laporan->desa_id,
+            'sls_id'         => $laporan->sls_id,
+            'nama_kecamatan' => $laporan->kecamatan->nama ?? '-',
+            'nama_desa'      => $laporan->desa->nama ?? '-',
+            'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
+            'tanggal'        => $laporan->tanggal,
+            'data_usaha'     => $laporan->data_usaha,
+            'data_keluarga'  => $laporan->data_keluarga,
+            'data_submit'    => $laporan->data_submit,
         ]);
     }
 
@@ -200,6 +261,9 @@ class LaporanController extends Controller
         $this->authorize('update', $laporan);
 
         $request->validate([
+            'kecamatan_id' => 'required|exists:kecamatan,id',
+            'desa_id'      => 'required|exists:desa,id',
+            'sls_id'       => 'required|exists:sls,id',
             'tanggal'      => 'required|date',
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
@@ -212,33 +276,38 @@ class LaporanController extends Controller
             'data_keluarga.integer'  => 'Data keluarga harus berupa angka.',
         ]);
 
+        if (!Desa::where('id', $request->desa_id)->where('kecamatan_id', $request->kecamatan_id)->exists()) {
+            return redirect()->back()->withErrors(['desa_id' => 'Desa tidak valid untuk kecamatan yang dipilih.']);
+        }
+
+        $kecamatan = Kecamatan::findOrFail($request->kecamatan_id);
+        $desa = Desa::findOrFail($request->desa_id);
+        $sls = Sls::findOrFail($request->sls_id);
+
+        if (!Sls::where('id', $request->sls_id)->where('desa_id', $request->desa_id)->exists()) {
+            return redirect()->back()->withErrors(['sls_id' => 'SLS tidak valid untuk desa yang dipilih.']);
+        }
+
         $laporan->update([
-            'tanggal'      => $request->tanggal,
-            'data_usaha'   => $request->data_usaha,
-            'data_keluarga'=> $request->data_keluarga,
-            'data_submit'  => $request->data_submit ?? $laporan->data_submit,
+            'kecamatan_id'   => $request->kecamatan_id,
+            'desa_id'        => $request->desa_id,
+            'sls_id'         => $request->sls_id,
+            'nama_kecamatan' => $kecamatan->nama,
+            'nama_desa'      => $desa->nama,
+            'nomor_sls'      => $sls->nomor_sls,
+            'tanggal'        => $request->tanggal,
+            'data_usaha'     => $request->data_usaha,
+            'data_keluarga'  => $request->data_keluarga,
+            'data_submit'    => $request->data_submit ?? $laporan->data_submit,
         ]);
 
         return redirect()->back()->with('success', 'Laporan berhasil diperbarui.');
     }
 
     /**
-     * Hapus laporan — hanya PML
+     * Helper: Tentukan status survei berdasarkan tanggal.
      */
-    public function destroy($id)
-    {
-        $laporan = Laporan::findOrFail($id);
-
-        $this->authorize('delete', $laporan);
-        $laporan->delete();
-
-        return redirect()->back()->with('success', 'Laporan berhasil dihapus.');
-    }
-
-    /**
-     * Helper: Tentukan status survei berdasarkan tanggal
-     */
-    private function getStatus($tanggalMulai, $tanggalSelesai): string
+    private function getStatus(string $tanggalMulai, string $tanggalSelesai): string
     {
         $today = now()->toDateString();
 
@@ -246,8 +315,9 @@ class LaporanController extends Controller
             return 'Belum Mulai';
         } elseif ($today > $tanggalSelesai) {
             return 'Selesai';
-        } else {
-            return 'Berlangsung';
         }
+
+        return 'Berlangsung';
     }
 }
+

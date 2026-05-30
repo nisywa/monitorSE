@@ -36,5 +36,8 @@ class DatabaseSeeder extends Seeder
 
         // Jalankan PmlSeeder untuk menambahkan 10 PML
         $this->call(PmlSeeder::class);
+
+        // Jalankan WilayahKerjaSeeder untuk menambahkan data kecamatan, desa, dan SLS
+        $this->call(WilayahKerjaSeeder::class);
     }
 }

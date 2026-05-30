@@ -1,19 +1,37 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 
-export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
+export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySurvei, role }) {
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
+    const [filterPclId, setFilterPclId] = useState('');
     const [selectedSurveiId, setSelectedSurveiId] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [kecamatanList, setKecamatanList] = useState([]);
+    const [desaList, setDesaList] = useState([]);
+    const [slsList, setSlsList] = useState([]);
+    const [filterKecamatanId, setFilterKecamatanId] = useState('');
+    const [filterDesaId, setFilterDesaId] = useState('');
+    const [filterSlsId, setFilterSlsId] = useState('');
+    const [filterDesaList, setFilterDesaList] = useState([]);
+    const [filterSlsList, setFilterSlsList] = useState([]);
+    const [loadingKecamatan, setLoadingKecamatan] = useState(false);
+    const [loadingDesa, setLoadingDesa] = useState(false);
+    const [loadingSls, setLoadingSls] = useState(false);
+    const [loadingFilterDesa, setLoadingFilterDesa] = useState(false);
+    const [loadingFilterSls, setLoadingFilterSls] = useState(false);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         survei_id: '',
         pml_id: '',
+        kecamatan_id: '',
+        desa_id: '',
+        sls_id: '',
         tanggal: '',
         data_usaha: '',
         data_keluarga: '',
@@ -26,6 +44,8 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
         setEditData(null);
         reset();
         clearErrors();
+        setDesaList([]);
+        setSlsList([]);
         setShowModal(true);
     };
 
@@ -34,6 +54,9 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
         setData({
             survei_id: String(laporan.survei_id),
             pml_id: String(laporan.pml_id),
+            kecamatan_id: String(laporan.kecamatan_id || ''),
+            desa_id: String(laporan.desa_id || ''),
+            sls_id: String(laporan.sls_id || ''),
             tanggal: laporan.tanggal,
             data_usaha: String(laporan.data_usaha),
             data_keluarga: String(laporan.data_keluarga),
@@ -69,22 +92,165 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
         ? laporans?.filter(l => l.survei_id === parseInt(selectedSurveiId)) ?? []
         : [];
 
-    // Hitung total dari laporan yang ditampilkan
-    const totalDataUsaha = laporanBySurvei.reduce((sum, l) => sum + (l.data_usaha || 0), 0);
-    const totalDataKeluarga = laporanBySurvei.reduce((sum, l) => sum + (l.data_keluarga || 0), 0);
-    const totalDataSubmit = laporanBySurvei.reduce((sum, l) => sum + (l.data_submit || 0), 0);
-
     const filtered = laporanBySurvei.filter(l => {
         const searchTerm = search.toLowerCase();
         const pclOrPmlName = role === 'PCL' ? l.nama_pml : l.nama_pcl;
-        const matchesSearch = l.nama_survei.toLowerCase().includes(searchTerm) ||
-            pclOrPmlName.toLowerCase().includes(searchTerm);
+        const matchesSearch = role === 'PML'
+            ? true
+            : l.nama_survei.toLowerCase().includes(searchTerm) || pclOrPmlName.toLowerCase().includes(searchTerm);
         const matchesFromDate = !startDate || (l.tanggal && l.tanggal >= startDate);
         const matchesToDate = !endDate || (l.tanggal && l.tanggal <= endDate);
-        return matchesSearch && matchesFromDate && matchesToDate;
+        const matchesKecamatan = !filterKecamatanId || l.kecamatan_id === parseInt(filterKecamatanId);
+        const matchesDesa = !filterDesaId || l.desa_id === parseInt(filterDesaId);
+        const matchesSls = !filterSlsId || l.sls_id === parseInt(filterSlsId);
+        const matchesPcl = role === 'PML' ? (!filterPclId || l.pcl_id === parseInt(filterPclId)) : true;
+        return matchesSearch && matchesFromDate && matchesToDate && matchesKecamatan && matchesDesa && matchesSls && matchesPcl;
     });
 
+    const totalDataUsaha = filtered.reduce((sum, l) => sum + (l.data_usaha || 0), 0);
+    const totalDataKeluarga = filtered.reduce((sum, l) => sum + (l.data_keluarga || 0), 0);
+    const totalDataSubmit = filtered.reduce((sum, l) => sum + (l.data_submit || 0), 0);
+
     const selectedPml = data.survei_id ? pmlBySurvei?.[data.survei_id] ?? null : null;
+
+    const availablePclsForSelectedSurvei = selectedSurveiId
+        ? (pclsBySurvei?.[selectedSurveiId] ??
+            Array.from(new Map(laporanBySurvei.map(l => [l.pcl_id, { id: l.pcl_id, nama_pcl: l.nama_pcl }])).values()))
+        : [];
+
+    const fetchKecamatanList = async () => {
+        setLoadingKecamatan(true);
+        try {
+            const response = await axios.get('/api/wilayah-kerja/kecamatan-list');
+            setKecamatanList(response.data.data || []);
+        } catch (error) {
+            console.error('Error fetching kecamatan list:', error);
+            setKecamatanList([]);
+        } finally {
+            setLoadingKecamatan(false);
+        }
+    };
+
+    const fetchDesaByKecamatan = async (kecamatanId, selectedDesaId = null, selectedSlsId = null) => {
+        setLoadingDesa(true);
+        try {
+            const response = await axios.get(`/api/wilayah-kerja/desa/${kecamatanId}`);
+            const desaData = response.data.data || [];
+            setDesaList(desaData);
+            if (selectedDesaId) {
+                setData('desa_id', String(selectedDesaId));
+                if (selectedSlsId) {
+                    await fetchSlsByDesa(selectedDesaId, selectedSlsId);
+                }
+            } else {
+                setData('desa_id', '');
+                setData('sls_id', '');
+                setSlsList([]);
+            }
+        } catch (error) {
+            console.error('Error fetching desa:', error);
+            setDesaList([]);
+            setSlsList([]);
+            setData('desa_id', '');
+            setData('sls_id', '');
+        } finally {
+            setLoadingDesa(false);
+        }
+    };
+
+    const fetchSlsByDesa = async (desaId, selectedSlsId = null) => {
+        setLoadingSls(true);
+        try {
+            const response = await axios.get(`/api/wilayah-kerja/sls/${desaId}`);
+            const slsData = response.data.data || [];
+            setSlsList(slsData);
+            if (selectedSlsId) {
+                setData('sls_id', String(selectedSlsId));
+            } else {
+                setData('sls_id', '');
+            }
+        } catch (error) {
+            console.error('Error fetching sls:', error);
+            setSlsList([]);
+            setData('sls_id', '');
+        } finally {
+            setLoadingSls(false);
+        }
+    };
+
+    const fetchFilterDesaByKecamatan = async (kecamatanId) => {
+        setLoadingFilterDesa(true);
+        try {
+            const response = await axios.get(`/api/wilayah-kerja/desa/${kecamatanId}`);
+            setFilterDesaList(response.data.data || []);
+        } catch (error) {
+            console.error('Error fetching filter desa:', error);
+            setFilterDesaList([]);
+        } finally {
+            setLoadingFilterDesa(false);
+        }
+    };
+
+    const fetchFilterSlsByDesa = async (desaId) => {
+        setLoadingFilterSls(true);
+        try {
+            const response = await axios.get(`/api/wilayah-kerja/sls/${desaId}`);
+            setFilterSlsList(response.data.data || []);
+        } catch (error) {
+            console.error('Error fetching filter sls:', error);
+            setFilterSlsList([]);
+        } finally {
+            setLoadingFilterSls(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchKecamatanList();
+    }, []);
+
+    useEffect(() => {
+        if (filterKecamatanId) {
+            setFilterDesaId('');
+            setFilterSlsId('');
+            setFilterSlsList([]);
+            fetchFilterDesaByKecamatan(filterKecamatanId);
+        } else {
+            setFilterDesaList([]);
+            setFilterDesaId('');
+            setFilterSlsList([]);
+            setFilterSlsId('');
+        }
+    }, [filterKecamatanId]);
+
+    useEffect(() => {
+        if (filterDesaId) {
+            setFilterSlsId('');
+            fetchFilterSlsByDesa(filterDesaId);
+        } else {
+            setFilterSlsList([]);
+            setFilterSlsId('');
+        }
+    }, [filterDesaId]);
+
+    useEffect(() => {
+        if (data.kecamatan_id) {
+            fetchDesaByKecamatan(data.kecamatan_id, data.desa_id, data.sls_id);
+        } else {
+            setDesaList([]);
+            setSlsList([]);
+            setData('desa_id', '');
+            setData('sls_id', '');
+        }
+    }, [data.kecamatan_id]);
+
+    useEffect(() => {
+        if (data.desa_id) {
+            fetchSlsByDesa(data.desa_id, data.sls_id);
+        } else {
+            setSlsList([]);
+            setData('sls_id', '');
+        }
+    }, [data.desa_id]);
 
     useEffect(() => {
         if (data.survei_id) {
@@ -93,6 +259,10 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
             setData('pml_id', '');
         }
     }, [data.survei_id, selectedPml]);
+
+    useEffect(() => {
+        setFilterPclId('');
+    }, [selectedSurveiId]);
 
     return (
         <MainLayout title={pageTitle}>
@@ -104,7 +274,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                     <h2 className="text-lg font-semibold text-gray-800">{pageTitle}</h2>
                     <p className="text-sm text-gray-500 mt-0.5">
                         {selectedSurveiId
-                            ? `Total ${laporanBySurvei.length} laporan`
+                            ? `Menampilkan ${filtered.length.toLocaleString('id-ID')} laporan`
                             : 'Pilih survei untuk melihat laporan'}
                     </p>
                 </div>
@@ -135,6 +305,52 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                         <option key={s.id} value={s.id}>{s.nama_survei}</option>
                     ))}
                 </select>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Filter Kecamatan</label>
+                        <select
+                            value={filterKecamatanId}
+                            onChange={e => setFilterKecamatanId(e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Semua Kecamatan</option>
+                            {kecamatanList.map(k => (
+                                <option key={k.id} value={k.id}>{k.nama}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Filter Desa</label>
+                        <select
+                            value={filterDesaId}
+                            onChange={e => setFilterDesaId(e.target.value)}
+                            disabled={!filterKecamatanId || loadingFilterDesa}
+                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                        >
+                            <option value="">Semua Desa</option>
+                            {filterDesaList.map(d => (
+                                <option key={d.id} value={d.id}>{d.nama}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Filter SLS</label>
+                        <select
+                            value={filterSlsId}
+                            onChange={e => setFilterSlsId(e.target.value)}
+                            disabled={!filterDesaId || loadingFilterSls}
+                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                        >
+                            <option value="">Semua SLS</option>
+                            {filterSlsList.map(s => (
+                                <option key={s.id} value={s.id}>{s.nomor_sls}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
             </div>
 
             {/* Role Info Banner */}
@@ -215,7 +431,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-gray-600 mb-1">Jumlah Laporan</p>
-                                    <p className="text-3xl font-bold text-purple-600">{laporanBySurvei.length.toLocaleString('id-ID')}</p>
+                                    <p className="text-3xl font-bold text-purple-600">{filtered.length.toLocaleString('id-ID')}</p>
                                 </div>
                                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                                     <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,7 +465,21 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                                 />
                             </div>
 
-                            {role === 'PML' && (
+                            {role === 'PML' ? (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Filter PCL</label>
+                                    <select
+                                        value={filterPclId}
+                                        onChange={e => setFilterPclId(e.target.value)}
+                                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="">Semua PCL</option>
+                                        {availablePclsForSelectedSurvei.map(pcl => (
+                                            <option key={pcl.id} value={pcl.id}>{pcl.nama_pcl}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : (
                                 <div className="relative min-w-0">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,6 +510,9 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                                             {role === 'PCL' ? 'PML' : 'PCL'}
                                         </th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Desa</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usaha</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Keluarga</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Submit</th>
@@ -291,7 +524,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                                 <tbody className="divide-y divide-gray-50">
                                     {filtered.length === 0 ? (
                                         <tr>
-                                            <td colSpan={9} className="text-center py-12 text-gray-400 text-sm">
+                                            <td colSpan={role === 'PML' || role === 'PCL' ? 10 : 9} className="text-center py-12 text-gray-400 text-sm">
                                                 {search ? 'Tidak ada hasil pencarian.' : 'Belum ada laporan untuk survei ini.'}
                                             </td>
                                         </tr>
@@ -303,6 +536,9 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                                                 {role === 'PCL' ? laporan.nama_pml : laporan.nama_pcl}
                                             </td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.tanggal}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{laporan.nama_kecamatan || laporan.nama_kecamatan || '-'}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{laporan.nama_desa || laporan.nama_desa || '-'}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{laporan.nomor_sls || laporan.nomor_sls || '-'}</td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.data_usaha}</td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.data_keluarga}</td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.data_submit ?? 0}</td>
@@ -364,6 +600,54 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, role }) {
                             {errors.pml_id && <p className="text-red-500 text-xs mt-1">{errors.pml_id}</p>}
                         </div>
                     )}
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Kecamatan</label>
+                            <select value={data.kecamatan_id} onChange={e => {
+                                    setData('kecamatan_id', e.target.value);
+                                    setData('desa_id', '');
+                                    setData('sls_id', '');
+                                }}
+                                disabled={isReadOnlyMode || loadingKecamatan}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.kecamatan_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingKecamatan ? 'bg-gray-100' : ''}`}>
+                                <option value="">Pilih Kecamatan</option>
+                                {kecamatanList.map(k => (
+                                    <option key={k.id} value={k.id}>{k.nama}</option>
+                                ))}
+                            </select>
+                            {errors.kecamatan_id && <p className="text-red-500 text-xs mt-1">{errors.kecamatan_id}</p>}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Desa</label>
+                            <select value={data.desa_id} onChange={e => {
+                                    setData('desa_id', e.target.value);
+                                    setData('sls_id', '');
+                                }}
+                                disabled={isReadOnlyMode || loadingDesa || !data.kecamatan_id}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingDesa ? 'bg-gray-100' : ''}`}>
+                                <option value="">Pilih Desa</option>
+                                {desaList.map(d => (
+                                    <option key={d.id} value={d.id}>{d.nama}</option>
+                                ))}
+                            </select>
+                            {errors.desa_id && <p className="text-red-500 text-xs mt-1">{errors.desa_id}</p>}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">SLS</label>
+                            <select value={data.sls_id} onChange={e => setData('sls_id', e.target.value)}
+                                disabled={isReadOnlyMode || loadingSls || !data.desa_id}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingSls ? 'bg-gray-100' : ''}`}>
+                                <option value="">Pilih SLS</option>
+                                {slsList.map(s => (
+                                    <option key={s.id} value={s.id}>{s.nomor_sls}</option>
+                                ))}
+                            </select>
+                            {errors.sls_id && <p className="text-red-500 text-xs mt-1">{errors.sls_id}</p>}
+                        </div>
+                    </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>

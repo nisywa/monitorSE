@@ -219,24 +219,106 @@ class DashboardController extends Controller
 
         // Untuk setiap PCL, hitung akumulasi laporan di survei dan PML ini
         $result = [];
+        $kecamatanId = $request->query('kecamatan_id');
+        $desaId = $request->query('desa_id');
+        $slsId = $request->query('sls_id');
+
         foreach ($pcls as $pcl) {
-            $laporan = Laporan::where('survei_id', $surveiId)
+            $laporanQuery = Laporan::where('survei_id', $surveiId)
                 ->where('pml_id', $pmlId)
-                ->where('pcl_id', $pcl->id)
-                ->first();
+                ->where('pcl_id', $pcl->id);
+
+            if ($kecamatanId) {
+                $laporanQuery->where('kecamatan_id', $kecamatanId);
+            }
+            if ($desaId) {
+                $laporanQuery->where('desa_id', $desaId);
+            }
+            if ($slsId) {
+                $laporanQuery->where('sls_id', $slsId);
+            }
 
             $result[] = [
                 'id' => $pcl->id,
                 'nama_pcl' => $pcl->nama_pcl,
-                'data_usaha' => $laporan ? $laporan->data_usaha : 0,
-                'data_keluarga' => $laporan ? $laporan->data_keluarga : 0,
-                'data_submit' => $laporan ? $laporan->data_submit : 0,
+                'data_usaha' => $laporanQuery->sum('data_usaha'),
+                'data_keluarga' => $laporanQuery->sum('data_keluarga'),
+                'data_submit' => $laporanQuery->sum('data_submit'),
+                'laporan_count' => $laporanQuery->count(),
             ];
         }
 
         return response()->json([
             'pcls' => $result,
             'pml_name' => $pml->nama_pml
+        ]);
+    }
+
+    public function getStatsByLocation(Request $request)
+    {
+        $user = Auth::user();
+        $surveiId = $request->query('survei_id');
+        $pmlId = $request->query('pml_id');
+        $kecamatanId = $request->query('kecamatan_id');
+        $desaId = $request->query('desa_id');
+        $slsId = $request->query('sls_id');
+
+        if (!$surveiId || !$pmlId) {
+            return response()->json([
+                'total_pml' => 0,
+                'total_pcl' => 0,
+                'total_survei' => 0,
+                'total_laporan' => 0,
+                'total_data_usaha' => 0,
+                'total_data_keluarga' => 0,
+                'total_data_submit' => 0,
+            ]);
+        }
+
+        if ($user->role === 'PML') {
+            $pml = $user->pml;
+            if (!$pml || (int) $pmlId !== $pml->id) {
+                return response()->json([
+                    'total_pml' => 0,
+                    'total_pcl' => 0,
+                    'total_survei' => 0,
+                    'total_laporan' => 0,
+                    'total_data_usaha' => 0,
+                    'total_data_keluarga' => 0,
+                    'total_data_submit' => 0,
+                ]);
+            }
+        }
+
+        $query = Laporan::where('survei_id', $surveiId)
+            ->where('pml_id', $pmlId);
+
+        if ($kecamatanId) {
+            $query->where('kecamatan_id', $kecamatanId);
+        }
+        if ($desaId) {
+            $query->where('desa_id', $desaId);
+        }
+        if ($slsId) {
+            $query->where('sls_id', $slsId);
+        }
+
+        $totalLaporan = $query->count();
+        $totalPml = (clone $query)->distinct()->count('pml_id');
+        $totalPcl = (clone $query)->distinct()->count('pcl_id');
+        $totalSurvei = (clone $query)->distinct()->count('survei_id');
+        $totalDataUsaha = (clone $query)->sum('data_usaha');
+        $totalDataKeluarga = (clone $query)->sum('data_keluarga');
+        $totalDataSubmit = (clone $query)->sum('data_submit');
+
+        return response()->json([
+            'total_pml' => $totalPml,
+            'total_pcl' => $totalPcl,
+            'total_survei' => $totalSurvei,
+            'total_laporan' => $totalLaporan,
+            'total_data_usaha' => $totalDataUsaha,
+            'total_data_keluarga' => $totalDataKeluarga,
+            'total_data_submit' => $totalDataSubmit,
         ]);
     }
 }

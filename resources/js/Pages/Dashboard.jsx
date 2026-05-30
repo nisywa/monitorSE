@@ -35,6 +35,15 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
     const [pclChartData, setPclChartData] = useState([]);
     const [pmlName, setPmlName] = useState('');
     const [loading, setLoading] = useState(false);
+    const [kecamatanList, setKecamatanList] = useState([]);
+    const [desaList, setDesaList] = useState([]);
+    const [slsList, setSlsList] = useState([]);
+    const [selectedKecamatan, setSelectedKecamatan] = useState(null);
+    const [selectedDesa, setSelectedDesa] = useState(null);
+    const [selectedSls, setSelectedSls] = useState(null);
+    const [locationStats, setLocationStats] = useState(null);
+    const [loadingWilayah, setLoadingWilayah] = useState(false);
+    const [loadingLocationStats, setLoadingLocationStats] = useState(false);
 
     // Effect untuk update PML options ketika survei berubah
     useEffect(() => {
@@ -51,11 +60,20 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
         }
     }, [selectedSurvei]);
 
-    // Effect untuk fetch chart data ketika survei atau PML berubah
+    // Effect untuk fetch chart data ketika survei, PML, atau filter lokasi berubah
     useEffect(() => {
         if (selectedSurvei && selectedPml) {
             setLoading(true);
-            fetch(`/api/dashboard/chart-data-by-pml?survei_id=${selectedSurvei}&pml_id=${selectedPml}`)
+            const params = new URLSearchParams({
+                survei_id: selectedSurvei,
+                pml_id: selectedPml,
+            });
+
+            if (selectedKecamatan) params.set('kecamatan_id', selectedKecamatan);
+            if (selectedDesa) params.set('desa_id', selectedDesa);
+            if (selectedSls) params.set('sls_id', selectedSls);
+
+            fetch(`/api/dashboard/chart-data-by-pml?${params.toString()}`)
                 .then(response => response.json())
                 .then(data => {
                     setPclChartData(data.pcls || []);
@@ -66,13 +84,121 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                     console.error('Error fetching chart data:', error);
                     setLoading(false);
                 });
+        } else {
+            setPclChartData([]);
         }
-    }, [selectedSurvei, selectedPml]);
+    }, [selectedSurvei, selectedPml, selectedKecamatan, selectedDesa, selectedSls]);
+
+    const displayStats = locationStats || stats;
+
+    const fetchKecamatanList = async () => {
+        setLoadingWilayah(true);
+        try {
+            const response = await fetch('/api/wilayah-kerja/kecamatan-list');
+            const data = await response.json();
+            setKecamatanList(data.data || []);
+        } catch (error) {
+            console.error('Error fetching kecamatan list:', error);
+            setKecamatanList([]);
+        } finally {
+            setLoadingWilayah(false);
+        }
+    };
+
+    const fetchDesaList = async (kecamatanId) => {
+        setLoadingWilayah(true);
+        try {
+            const response = await fetch(`/api/wilayah-kerja/desa/${kecamatanId}`);
+            const data = await response.json();
+            setDesaList(data.data || []);
+        } catch (error) {
+            console.error('Error fetching desa list:', error);
+            setDesaList([]);
+        } finally {
+            setLoadingWilayah(false);
+        }
+    };
+
+    const fetchSlsList = async (desaId) => {
+        setLoadingWilayah(true);
+        try {
+            const response = await fetch(`/api/wilayah-kerja/sls/${desaId}`);
+            const data = await response.json();
+            setSlsList(data.data || []);
+        } catch (error) {
+            console.error('Error fetching sls list:', error);
+            setSlsList([]);
+        } finally {
+            setLoadingWilayah(false);
+        }
+    };
+
+    const fetchLocationStats = async () => {
+        if (!selectedSurvei || !selectedPml) {
+            setLocationStats(null);
+            return;
+        }
+
+        setLoadingLocationStats(true);
+        const params = new URLSearchParams({
+            survei_id: selectedSurvei,
+            pml_id: selectedPml,
+        });
+
+        if (selectedKecamatan) params.set('kecamatan_id', selectedKecamatan);
+        if (selectedDesa) params.set('desa_id', selectedDesa);
+        if (selectedSls) params.set('sls_id', selectedSls);
+
+        try {
+            const response = await fetch(`/api/dashboard/stats-by-location?${params.toString()}`);
+            const data = await response.json();
+            setLocationStats(data);
+        } catch (error) {
+            console.error('Error fetching location stats:', error);
+            setLocationStats(null);
+        } finally {
+            setLoadingLocationStats(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchKecamatanList();
+    }, []);
+
+    useEffect(() => {
+        if (selectedKecamatan) {
+            setSelectedDesa(null);
+            setSelectedSls(null);
+            setDesaList([]);
+            setSlsList([]);
+            fetchDesaList(selectedKecamatan);
+        } else {
+            setDesaList([]);
+            setSelectedDesa(null);
+            setSlsList([]);
+            setSelectedSls(null);
+        }
+    }, [selectedKecamatan]);
+
+    useEffect(() => {
+        if (selectedDesa) {
+            setSelectedSls(null);
+            setSlsList([]);
+            fetchSlsList(selectedDesa);
+        } else {
+            setSlsList([]);
+            setSelectedSls(null);
+        }
+    }, [selectedDesa]);
+
+    useEffect(() => {
+        fetchLocationStats();
+    }, [selectedSurvei, selectedPml, selectedKecamatan, selectedDesa, selectedSls]);
 
     const adminStats = [
         {
             label: 'Total PML',
-            value: stats?.total_pml,
+            value: displayStats?.total_pml,
             color: 'blue',
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +208,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
         },
         {
             label: 'Total PCL',
-            value: stats?.total_pcl,
+            value: displayStats?.total_pcl,
             color: 'green',
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,7 +218,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
         },
         {
             label: 'Total Survei',
-            value: stats?.total_survei,
+            value: displayStats?.total_survei,
             color: 'purple',
             icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,22 +226,13 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                 </svg>
             ),
         },
-        {
-            label: 'Total Laporan',
-            value: stats?.total_laporan,
-            color: 'orange',
-            icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            ),
-        },
+       
     ];
 
     const pmlStats = [
-        { label: 'Total PCL Saya', value: stats?.total_pcl, color: 'green', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
-        { label: 'Total Survei Saya', value: stats?.total_survei, color: 'purple', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg> },
-        { label: 'Total Laporan', value: stats?.total_laporan, color: 'orange', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
+        { label: 'Total PCL Saya', value: displayStats?.total_pcl, color: 'green', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
+        { label: 'Total Survei Saya', value: displayStats?.total_survei, color: 'purple', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg> },
+        { label: 'Total Laporan', value: displayStats?.total_laporan, color: 'orange', icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> },
     ];
 
     const pclStats = [
@@ -126,6 +243,11 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
     const statCards = role === 'admin' ? adminStats : role === 'PML' ? pmlStats : pclStats;
 
     const roleLabels = { admin: 'Administrator', PML: 'Petugas Manajemen Lapangan', PCL: 'Petugas Cacah Lapangan' };
+
+    const totalDataUsahaByFilter = displayStats?.total_data_usaha ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_usaha || 0), 0);
+    const totalDataKeluargaByFilter = displayStats?.total_data_keluarga ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_keluarga || 0), 0);
+    const totalDataSubmitByFilter = displayStats?.total_data_submit ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_submit || 0), 0);
+    const totalLaporanByFilter = displayStats?.total_laporan ?? pclChartData.reduce((sum, pcl) => sum + (pcl.laporan_count || 0), 0);
 
     // Komponen untuk menampilkan chart PCL
     function PclChart({ pcl }) {
@@ -202,7 +324,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {statCards.map((stat, i) => (
                     <StatCard key={i} {...stat} />
                 ))}
@@ -248,34 +370,107 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                             </select>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Kecamatan</label>
+                            <select
+                                value={selectedKecamatan || ''}
+                                onChange={(e) => setSelectedKecamatan(e.target.value ? parseInt(e.target.value) : null)}
+                                disabled={!selectedSurvei || !selectedPml || loadingWilayah}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedSurvei || !selectedPml || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            >
+                                <option value="">-- Pilih Kecamatan --</option>
+                                {kecamatanList.map((kecamatan) => (
+                                    <option key={kecamatan.id} value={kecamatan.id}>
+                                        {kecamatan.nama}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Desa</label>
+                            <select
+                                value={selectedDesa || ''}
+                                onChange={(e) => setSelectedDesa(e.target.value ? parseInt(e.target.value) : null)}
+                                disabled={!selectedKecamatan || loadingWilayah}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedKecamatan || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            >
+                                <option value="">-- Pilih Desa --</option>
+                                {desaList.map((desa) => (
+                                    <option key={desa.id} value={desa.id}>
+                                        {desa.nama}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih SLS</label>
+                            <select
+                                value={selectedSls || ''}
+                                onChange={(e) => setSelectedSls(e.target.value ? parseInt(e.target.value) : null)}
+                                disabled={!selectedDesa || loadingWilayah}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedDesa || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            >
+                                <option value="">-- Pilih SLS --</option>
+                                {slsList.map((sls) => (
+                                    <option key={sls.id} value={sls.id}>
+                                        {sls.nomor_sls}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {/* Charts Per Survei & PML */}
             {(role === 'admin' || role === 'PML') && selectedSurvei && selectedPml && (
-                <div className="mb-6">
-                    <div className="mb-4">
-                        <p className="text-sm text-gray-600 mt-1">Menampilkan data usaha, data keluarga, dan data submit untuk setiap PCL yang bertanggung jawab terhadap PML yang dipilih</p>
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Data Usaha</p>
+                            <p className="text-3xl font-bold text-blue-600">{totalDataUsahaByFilter.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Data Keluarga</p>
+                            <p className="text-3xl font-bold text-green-600">{totalDataKeluargaByFilter.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Data Submit</p>
+                            <p className="text-3xl font-bold text-orange-600">{totalDataSubmitByFilter.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Laporan</p>
+                            <p className="text-3xl font-bold text-purple-600">{totalLaporanByFilter.toLocaleString('id-ID')}</p>
+                        </div>
                     </div>
-                    {loading ? (
-                        <div className="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-100">
-                            <div className="text-center">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                                <p className="text-gray-600">Memuat data...</p>
+                    <div className="mb-6">
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600 mt-1">Menampilkan data usaha, data keluarga, dan data submit untuk setiap PCL yang bertanggung jawab terhadap PML yang dipilih</p>
+                        </div>
+                        {loading ? (
+                            <div className="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-100">
+                                <div className="text-center">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                                    <p className="text-gray-600">Memuat data...</p>
+                                </div>
                             </div>
-                        </div>
-                    ) : pclChartData.length > 0 ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {pclChartData.map((pcl) => (
-                                <PclChart key={pcl.id} pcl={pcl} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-                            <p className="text-yellow-800">PML yang dipilih tidak memiliki PCL atau laporan pada survei ini.</p>
-                        </div>
-                    )}
-                </div>
+                        ) : pclChartData.length > 0 ? (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {pclChartData.map((pcl) => (
+                                    <PclChart key={pcl.id} pcl={pcl} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                                <p className="text-yellow-800">PML yang dipilih tidak memiliki PCL atau laporan pada survei ini.</p>
+                            </div>
+                        )}
+                    </div>
+                </>
             )}
 
             {/* Pesan ketika belum memilih survei */}

@@ -121,7 +121,7 @@ class PclController extends Controller
         'desa.required'           => 'Desa wajib diisi.',
     ]);
 
-    $generatedPassword = date('dmY', strtotime($request->tanggal_lahir));
+    $generatedPassword = Carbon::parse($request->tanggal_lahir)->format('dmY');
 
     DB::transaction(function () use ($request, $generatedPassword) {
         // Cek apakah user dengan email ini sudah ada
@@ -368,7 +368,7 @@ class PclController extends Controller
                     $user = User::where('email', $email)->first();
                     
                     if (!$user) {
-                        $generatedPassword = date('dmY', strtotime($row['tanggal_lahir']));
+                        $generatedPassword = Carbon::parse($row['tanggal_lahir'])->format('dmY');
                         $user = User::create([
                             'nama'     => $row['nama_pcl'],
                             'email'    => $email,

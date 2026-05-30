@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
+import axios from 'axios';
 
 export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [showModal, setShowModal] = useState(false);
@@ -11,6 +12,14 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [selectedSurveiId, setSelectedSurveiId] = useState('');
     const [selectedPmlName, setSelectedPmlName] = useState('');
     const [importLoading, setImportLoading] = useState(false);
+    
+    // State untuk cascading dropdown
+    const [kecamatanList, setKecamatanList] = useState([]);
+    const [desaList, setDesaList] = useState([]);
+    const [slsList, setSlsList] = useState([]);
+    const [loadingKecamatan, setLoadingKecamatan] = useState(false);
+    const [loadingDesa, setLoadingDesa] = useState(false);
+    const [loadingSls, setLoadingSls] = useState(false);
 
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nama: '',
@@ -29,6 +38,8 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         setEditData(null);
         reset();
         clearErrors();
+        setDesaList([]);
+        setSlsList([]);
         if (selectedSurveiId) {
             setData('survei_id', selectedSurveiId);
         }
@@ -53,9 +64,106 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                 no_telp: pclData.no_telp,
             });
             clearErrors();
+            
+            // Load desa jika ada kecamatan yang dipilih saat edit
+            if (pclData.asal_kecamatan) {
+                const kecSelected = kecamatanList.find(k => k.nama === pclData.asal_kecamatan);
+                if (kecSelected) {
+                    fetchDesaByKecamatan(kecSelected.id, pclData.desa, pclData.sls);
+                }
+            }
+            
             setShowModal(true);
         } catch (error) {
             console.error('Error loading PCL data:', error);
+        }
+    };
+
+    // Fetch kecamatan saat modal dibuka
+    useEffect(() => {
+        if (showModal && kecamatanList.length === 0) {
+            fetchKecamatan();
+        }
+    }, [showModal]);
+
+    // Fetch desa saat asal_kecamatan berubah
+    useEffect(() => {
+        if (data.asal_kecamatan) {
+            const kecSelected = kecamatanList.find(k => k.nama === data.asal_kecamatan);
+            if (kecSelected) {
+                fetchDesaByKecamatan(kecSelected.id);
+            }
+        } else {
+            setDesaList([]);
+            setSlsList([]);
+            setData('desa', '');
+            setData('sls', '');
+        }
+    }, [data.asal_kecamatan, kecamatanList]);
+
+    // Fetch sls saat desa berubah
+    useEffect(() => {
+        if (data.desa) {
+            const desaSelected = desaList.find(d => d.nama === data.desa);
+            if (desaSelected) {
+                fetchSlsByDesa(desaSelected.id);
+            }
+        } else {
+            setSlsList([]);
+            setData('sls', '');
+        }
+    }, [data.desa, desaList]);
+
+    const fetchKecamatan = async () => {
+        try {
+            setLoadingKecamatan(true);
+            const response = await axios.get('/api/wilayah-kerja/kecamatan-list');
+            setKecamatanList(response.data.data || []);
+        } catch (error) {
+            console.error('Error fetching kecamatan:', error);
+            alert('Gagal memuat data kecamatan');
+        } finally {
+            setLoadingKecamatan(false);
+        }
+    };
+
+    const fetchDesaByKecamatan = async (kecamatanId, selectedDesaNama = null, selectedSlsNama = null) => {
+        try {
+            setLoadingDesa(true);
+            const response = await axios.get(`/api/wilayah-kerja/desa/${kecamatanId}`);
+            setDesaList(response.data.data || []);
+            
+            // Set selected desa if provided (during edit)
+            if (selectedDesaNama) {
+                setData('desa', selectedDesaNama);
+                const desaSelected = response.data.data?.find(d => d.nama === selectedDesaNama);
+                if (desaSelected && selectedSlsNama) {
+                    fetchSlsByDesa(desaSelected.id, selectedSlsNama);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching desa:', error);
+            setDesaList([]);
+        } finally {
+            setLoadingDesa(false);
+        }
+    };
+
+    const fetchSlsByDesa = async (desaId, selectedSlsNama = null) => {
+        try {
+            setLoadingSls(true);
+            const response = await axios.get(`/api/wilayah-kerja/sls/${desaId}`);
+            setSlsList(response.data.data || []);
+            
+            // Set selected sls if provided (during edit)
+            if (selectedSlsNama) {
+                setData('sls', selectedSlsNama);
+            }
+        } catch (error) {
+            console.error('Error fetching sls:', error);
+            setSlsList([]);
+        } finally {
+            setLoadingSls(false);
         }
     };
 
@@ -518,25 +626,56 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Asal Kecamatan</label>
-                                <input type="text" value={data.asal_kecamatan} onChange={e => setData('asal_kecamatan', e.target.value)}
-                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.asal_kecamatan ? 'border-red-300' : 'border-gray-200'}`}
-                                    placeholder="Nama kecamatan" />
+                                <select
+                                    value={data.asal_kecamatan}
+                                    onChange={e => {
+                                        setData('asal_kecamatan', e.target.value);
+                                        setData('desa', '');
+                                        setData('sls', '');
+                                    }}
+                                    disabled={loadingKecamatan}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.asal_kecamatan ? 'border-red-300' : 'border-gray-200'} ${loadingKecamatan ? 'bg-gray-100' : ''}`}
+                                >
+                                    <option value="">Pilih Kecamatan</option>
+                                    {kecamatanList.map(k => (
+                                        <option key={k.id} value={k.nama}>{k.nama}</option>
+                                    ))}
+                                </select>
                                 {errors.asal_kecamatan && <p className="text-red-500 text-xs mt-1">{errors.asal_kecamatan}</p>}
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Desa</label>
-                                <input type="text" value={data.desa} onChange={e => setData('desa', e.target.value)}
-                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa ? 'border-red-300' : 'border-gray-200'}`}
-                                    placeholder="Nama desa" />
+                                <select
+                                    value={data.desa}
+                                    onChange={e => {
+                                        setData('desa', e.target.value);
+                                        setData('sls', '');
+                                    }}
+                                    disabled={loadingDesa || !data.asal_kecamatan}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa ? 'border-red-300' : 'border-gray-200'} ${loadingDesa ? 'bg-gray-100' : ''}`}
+                                >
+                                    <option value="">Pilih Desa</option>
+                                    {desaList.map(d => (
+                                        <option key={d.id} value={d.nama}>{d.nama}</option>
+                                    ))}
+                                </select>
                                 {errors.desa && <p className="text-red-500 text-xs mt-1">{errors.desa}</p>}
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">SLS</label>
-                                <input type="text" value={data.sls} onChange={e => setData('sls', e.target.value)}
-                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls ? 'border-red-300' : 'border-gray-200'}`}
-                                    placeholder="Kode SLS" />
+                                <select
+                                    value={data.sls}
+                                    onChange={e => setData('sls', e.target.value)}
+                                    disabled={loadingSls || !data.desa}
+                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls ? 'border-red-300' : 'border-gray-200'} ${loadingSls ? 'bg-gray-100' : ''}`}
+                                >
+                                    <option value="">Pilih SLS</option>
+                                    {slsList.map(s => (
+                                        <option key={s.id} value={s.nomor_sls}>{s.nomor_sls}</option>
+                                    ))}
+                                </select>
                                 {errors.sls && <p className="text-red-500 text-xs mt-1">{errors.sls}</p>}
                             </div>
 
@@ -611,3 +750,4 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         </MainLayout>
     );
 }
+
