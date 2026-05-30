@@ -486,13 +486,13 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                         </svg>
                                     </span>
-                                    <input
+                                    {/* <input
                                         type="text"
                                         placeholder={`Cari nama ${role === 'PCL' ? 'PML' : 'PCL'}...`}
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
                                         className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
+                                    /> */}
                                 </div>
                             )}
                         </div>

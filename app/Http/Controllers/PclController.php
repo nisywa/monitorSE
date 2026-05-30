@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use App\Models\User;
 use App\Models\Pcl;
 use App\Models\Survei;
 use App\Models\Pml;
+use App\Services\WhatsAppBlastService;
 use Carbon\Carbon;
 
 class PclController extends Controller
@@ -83,10 +85,24 @@ class PclController extends Controller
             'survei_ids' => $pml->surveis->pluck('id')->toArray(),
         ]);
 
-    $surveis = Survei::select('id', 'nama_survei')
+    $today = Carbon::now('Asia/Jakarta')->toDateString();
+    $surveis = Survei::select('id', 'nama_survei', 'tanggal_mulai', 'tanggal_selesai')
         ->orderBy('nama_survei')
         ->get()
-        ->map(fn($s) => ['id' => $s->id, 'nama_survei' => $s->nama_survei]);
+        ->map(function ($s) use ($today) {
+            $status = 'Berlangsung';
+            if ($today < $s->tanggal_mulai) {
+                $status = 'Belum Mulai';
+            } elseif ($today > $s->tanggal_selesai) {
+                $status = 'Selesai';
+            }
+
+            return [
+                'id' => $s->id,
+                'nama_survei' => $s->nama_survei,
+                'status' => $status,
+            ];
+        });
 
     return Inertia::render('Admin/ManajemenPCL', [
         'pcls'    => $rows,
@@ -321,6 +337,109 @@ class PclController extends Controller
         return response()->json([
             'data' => $data,
             'survei_name' => $survei->nama_survei,
+        ]);
+    }
+
+    /**
+     * Kirim reminder WhatsApp ke semua PCL yang belum submit laporan hari ini
+     */
+    public function blastWhatsAppReminder(Request $request, WhatsAppBlastService $blastService)
+    {
+        if (!$blastService->isConfigured()) {
+            $message = 'Fonnte belum dikonfigurasi. Silakan isi FONNTE_API_URL dan FONNTE_API_KEY di .env.';
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => $message], 500)
+                : redirect()->back()->with('error', $message);
+        }
+
+        // Use WIB (Asia/Jakarta) for "today" semantics
+        $today = Carbon::now('Asia/Jakarta')->toDateString();
+        $pcls = Pcl::whereNotNull('no_telp')
+            ->whereHas('surveis', function ($query) use ($today) {
+                $query->whereDate('tanggal_mulai', '<=', $today)
+                      ->whereDate('tanggal_selesai', '>=', $today);
+            })
+            ->whereDoesntHave('laporan', function ($query) use ($today) {
+                $query->where('tanggal', $today);
+            })
+            ->get();
+
+        $results = $blastService->sendDailyReminderForPcls($pcls);
+        $sentCount = collect($results)->where('success', true)->count();
+        $failedCount = collect($results)->where('success', false)->count();
+        $message = "Blast WhatsApp selesai. Terkirim: $sentCount. Gagal: $failedCount.";
+        $isSuccess = $failedCount === 0;
+
+        return $request->wantsJson()
+            ? response()->json(['success' => $isSuccess, 'message' => $message, 'results' => $results])
+            : redirect()->back()->with($isSuccess ? 'success' : 'error', $message);
+    }
+
+    /**
+     * Debug / test route untuk mengirim satu pesan WA ke PCL pertama yang belum submit laporan hari ini.
+     */
+    public function testBlastWhatsApp(WhatsAppBlastService $blastService)
+    {
+        if (!$blastService->isConfigured()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fonnte belum dikonfigurasi. Silakan isi FONNTE_API_URL dan FONNTE_API_KEY di .env.',
+            ], 500);
+        }
+
+        $today = Carbon::now('Asia/Jakarta')->toDateString();
+        $pcl = Pcl::whereNotNull('no_telp')
+            ->whereHas('surveis', function ($query) use ($today) {
+                $query->whereDate('tanggal_mulai', '<=', $today)
+                      ->whereDate('tanggal_selesai', '>=', $today);
+            })
+            ->whereDoesntHave('laporan', function ($query) use ($today) {
+                $query->where('tanggal', $today);
+            })
+            ->first();
+
+        if (!$pcl) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada PCL yang belum submit laporan hari ini atau belum ada nomor WA yang valid.',
+            ], 404);
+        }
+
+        $message = sprintf(
+            'TEST Blast WA: Halo %s, ini pesan uji coba WA blast. Jika Anda menerima pesan ini, fitur WA blast sudah berjalan.',
+            $pcl->nama_pcl
+        );
+
+        $result = $blastService->sendReminderToPhone($pcl->no_telp, $message);
+
+        return response()->json(array_merge([
+            'pcl_id'   => $pcl->id,
+            'nama_pcl' => $pcl->nama_pcl,
+            'phone'    => $pcl->no_telp,
+        ], $result));
+    }
+
+    /**
+     * Kirim pesan WA individual menggunakan header Authorization dan payload manual.
+     */
+    public function sendIndividualWhatsApp(Request $request)
+    {
+        $target = $request->query('target', '6283105002928');
+        $message = $request->query('message', 'Halo');
+
+        $response = Http::withHeaders([
+            'Authorization' => env('FONNTE_API_KEY'),
+        ])->post(env('FONNTE_API_URL'), [
+            'target'  => $target,
+            'message' => $message,
+        ]);
+
+        return response()->json([
+            'target'   => $target,
+            'message'  => $message,
+            'status'   => $response->status(),
+            'body'     => $response->json(),
+            'success'  => $response->successful() && $response->json('status') === true,
         ]);
     }
 

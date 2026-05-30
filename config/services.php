@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'fonnte' => [
+        'api_url' => env('FONNTE_API_URL'),
+        'api_key' => env('FONNTE_API_KEY'),
+        'from'    => env('FONNTE_WHATSAPP_FROM'),
+    ],
 ];

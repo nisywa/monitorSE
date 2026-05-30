@@ -62,6 +62,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/manajemen-pcl', [PclController::class, 'index'])->name('pcl.index');
         Route::post('/manajemen-pcl', [PclController::class, 'store'])->name('pcl.store');
         Route::get('/manajemen-pcl/export/{surveiId}', [PclController::class, 'exportExcel'])->name('pcl.export');
+        Route::post('/manajemen-pcl/blast-whatsapp-reminder', [PclController::class, 'blastWhatsAppReminder'])->name('pcl.blast-whatsapp');
+        Route::get('/manajemen-pcl/test-blast-whatsapp', [PclController::class, 'testBlastWhatsApp'])->name('pcl.test-blast-whatsapp');
+        Route::get('/manajemen-pcl/send-whatsapp', [PclController::class, 'sendIndividualWhatsApp'])->name('pcl.send-whatsapp');
         Route::get('/manajemen-pcl/template', [PclController::class, 'downloadTemplate'])->name('pcl.template');
         Route::post('/manajemen-pcl/import', [PclController::class, 'importExcel'])->name('pcl.import');
         Route::get('/manajemen-pcl/{id}', [PclController::class, 'show'])->name('pcl.show');

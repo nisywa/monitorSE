@@ -12,6 +12,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [selectedSurveiId, setSelectedSurveiId] = useState('');
     const [selectedPmlName, setSelectedPmlName] = useState('');
     const [importLoading, setImportLoading] = useState(false);
+    const [blastLoading, setBlastLoading] = useState(false);
     
     // State untuk cascading dropdown
     const [kecamatanList, setKecamatanList] = useState([]);
@@ -205,6 +206,25 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         }
     };
 
+    const handleBlastWhatsApp = async () => {
+        if (!confirm('Kirim reminder WhatsApp ke semua PCL yang belum submit laporan hari ini (WIB)?')) return;
+
+        try {
+            setBlastLoading(true);
+            const response = await axios.post('/manajemen-pcl/blast-whatsapp-reminder', null, {
+                headers: { Accept: 'application/json' },
+            });
+            const message = response?.data?.message || 'Blast WhatsApp selesai.';
+            alert(message);
+        } catch (err) {
+            console.error(err);
+            const errorMessage = err?.response?.data?.message || err.message || 'Gagal mengirim blast WhatsApp.';
+            alert(errorMessage);
+        } finally {
+            setBlastLoading(false);
+        }
+    };
+
     const handleDownloadTemplate = () => {
         const templateData = [
             {
@@ -372,7 +392,9 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
              .sort()
         : [];
 
-    const selectedSurveiLabel = surveis?.find(s => String(s.id) === String(selectedSurveiId))?.nama_survei ?? '';
+    const selectedSurvei = surveis?.find(s => String(s.id) === String(selectedSurveiId));
+    const selectedSurveiLabel = selectedSurvei?.nama_survei ?? '';
+    const selectedSurveiStatus = selectedSurvei?.status ?? '';
 
     return (
         <MainLayout title="Manajemen PCL">
@@ -442,6 +464,19 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                             </svg>
                             Download Template
                         </button>
+
+                        {selectedSurveiId && selectedSurveiStatus === 'Berlangsung' && (
+                            <button
+                                onClick={handleBlastWhatsApp}
+                                disabled={blastLoading}
+                                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8l7.89-5.26a2 2 0 012.22 0L21 16" />
+                                </svg>
+                                {blastLoading ? 'Mengirim...' : 'Blast WA Reminder'}
+                            </button>
+                        )}
 
                         <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
