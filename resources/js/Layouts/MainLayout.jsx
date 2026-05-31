@@ -101,7 +101,7 @@ export default function MainLayout({ children, title = '' }) {
                     </div>
                     {sidebarOpen && (
                         <span className="text-gray-800 font-semibold text-sm leading-tight">
-                            Pinrang Monitoring <br /> Survei dan Sensus 
+                            Pinrang Monitoring <br /> Survei dan Sensus
                         </span>
                     )}
                 </div>
