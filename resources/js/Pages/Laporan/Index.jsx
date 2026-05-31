@@ -4,12 +4,14 @@ import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 
-export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySurvei, role }) {
+export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySurvei, pclsBelumKirim, role, selectedSurvei, selectedDate, initialTab }) {
+    const [activeTab, setActiveTab] = useState(initialTab ?? 'laporan');
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
     const [filterPclId, setFilterPclId] = useState('');
-    const [selectedSurveiId, setSelectedSurveiId] = useState('');
+    const [selectedSurveiId, setSelectedSurveiId] = useState(selectedSurvei ?? '');
+    const [selectedFilterDate, setSelectedFilterDate] = useState(selectedDate ?? new Date().toISOString().slice(0, 10));
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [kecamatanList, setKecamatanList] = useState([]);
@@ -92,7 +94,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         ? laporans?.filter(l => l.survei_id === parseInt(selectedSurveiId)) ?? []
         : [];
 
-    const filtered = laporanBySurvei.filter(l => {
+    const filtered = (activeTab === 'belumKirim' ? [] : laporanBySurvei).filter(l => {
         const searchTerm = search.toLowerCase();
         const pclOrPmlName = role === 'PCL' ? l.nama_pml : l.nama_pcl;
         const matchesSearch = role === 'PML'
@@ -271,11 +273,15 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h2 className="text-lg font-semibold text-gray-800">{pageTitle}</h2>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                        {activeTab === 'belumKirim' ? 'PCL Belum Kirim Laporan' : pageTitle}
+                    </h2>
                     <p className="text-sm text-gray-500 mt-0.5">
-                        {selectedSurveiId
-                            ? `Menampilkan ${filtered.length.toLocaleString('id-ID')} laporan`
-                            : 'Pilih survei untuk melihat laporan'}
+                        {activeTab === 'belumKirim' 
+                            ? `Menampilkan ${pclsBelumKirim?.length ?? 0} PCL belum submit laporan hari ini`
+                            : (selectedSurveiId
+                                ? `Menampilkan ${filtered.length.toLocaleString('id-ID')} laporan`
+                                : 'Pilih survei untuk melihat laporan')}
                     </p>
                 </div>
                 {role === 'PCL' && (
@@ -289,7 +295,39 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                 )}
             </div>
 
-            {/* Pilih Survei */}
+            {/* Tab Menu - Hanya untuk role PML */}
+            {role === 'PML' && (
+                <div className="flex gap-2 mb-6 border-b border-gray-200">
+                    <button
+                        onClick={() => setActiveTab('laporan')}
+                        className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                            activeTab === 'laporan'
+                                ? 'text-blue-600 border-blue-600'
+                                : 'text-gray-600 border-transparent hover:text-gray-800'
+                        }`}
+                    >
+                        Laporan
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('belumKirim')}
+                        className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                            activeTab === 'belumKirim'
+                                ? 'text-blue-600 border-blue-600'
+                                : 'text-gray-600 border-transparent hover:text-gray-800'
+                        }`}
+                    >
+                        Belum Kirim Laporan
+                        {pclsBelumKirim && pclsBelumKirim.length > 0 && (
+                            <span className="ml-2 inline-flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full">
+                                {pclsBelumKirim.length}
+                            </span>
+                        )}
+                    </button>
+                </div>
+            )}
+
+            {/* Pilih Survei - Hanya tampil di tab Laporan atau Belum Kirim (PML harus memilih survei dulu) */}
+            {activeTab === 'laporan' && (
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Pilih Survei
@@ -352,6 +390,51 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                     </div>
                 </div>
             </div>
+            )}
+
+            {/* Jika PML dan tab Belum Kirim: tunjukkan selector survei sebelum menampilkan data */}
+            {role === 'PML' && activeTab === 'belumKirim' && (
+                <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
+                    <div className="grid gap-4 md:grid-cols-2 items-end">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-3">
+                                Pilih Survei untuk melihat PCL yang belum kirim
+                            </label>
+                            <select
+                                value={selectedSurveiId}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setSelectedSurveiId(val);
+                                    router.get(window.location.pathname, { tab: 'belumKirim', survei_id: val, tanggal: selectedFilterDate });
+                                }}
+                                className="w-full md:w-xs border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- Pilih survei --</option>
+                                {surveis?.map(s => (
+                                    <option key={s.id} value={s.id}>{s.nama_survei}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-3">
+                                Filter Tanggal
+                            </label>
+                            <input
+                                type="date"
+                                value={selectedFilterDate}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setSelectedFilterDate(val);
+                                    if (selectedSurveiId) {
+                                        router.get(window.location.pathname, { tab: 'belumKirim', survei_id: selectedSurveiId, tanggal: val });
+                                    }
+                                }}
+                                className="w-full md:w-xs border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Role Info Banner */}
             <div className={`rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2 ${
@@ -367,8 +450,92 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                 {role === 'PCL'   && 'Anda login sebagai PCL — dapat menambahkan laporan baru.'}
             </div>
 
-            {/* Konten utama: tampil hanya setelah survei dipilih */}
-            {!selectedSurveiId ? (
+            {/* Konten utama: tampil hanya setelah survei dipilih (untuk tab laporan) atau langsung (untuk tab belumKirim) */}
+            {activeTab === 'belumKirim' ? (
+                selectedSurveiId ? (
+                <>
+                    {/* Ringkasan Card untuk Belum Kirim */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600 mb-1">Total PCL Belum Kirim Laporan</p>
+                                    <p className="text-3xl font-bold text-red-600">{(pclsBelumKirim?.length ?? 0).toLocaleString('id-ID')}</p>
+                                </div>
+                                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600 mb-1">Status</p>
+                                    <p className="text-lg font-bold text-blue-600">{selectedFilterDate === new Date().toISOString().slice(0, 10) ? 'Hari Ini' : selectedFilterDate}</p>
+                                </div>
+                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Table PCL Belum Kirim Laporan */}
+                    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama PCL</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Desa</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No. Telp</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {!pclsBelumKirim || pclsBelumKirim.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
+                                                Semua PCL sudah submit laporan hari ini! 🎉
+                                            </td>
+                                        </tr>
+                                    ) : pclsBelumKirim.map((pcl, i) => (
+                                        <tr key={pcl.pcl_id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
+                                            <td className="px-5 py-3.5 font-medium text-gray-800">{pcl.nama_pcl}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.asal_kecamatan || '-'}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.desa || '-'}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.sls || '-'}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{pcl.no_telp || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+                ) : (
+                    /* Placeholder sebelum pilih survei di tab Belum Kirim */
+                    <div className="bg-white rounded-xl border border-gray-100 p-16 flex flex-col items-center justify-center text-center gap-3">
+                        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2">
+                            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <p className="text-gray-700 font-medium">Pilih survei terlebih dahulu</p>
+                        <p className="text-gray-400 text-sm max-w-xs">
+                            Pilih survei di atas untuk menampilkan daftar PCL yang belum mengirim laporan hari ini.
+                        </p>
+                    </div>
+                )
+            ) : !selectedSurveiId ? (
                 /* Placeholder sebelum pilih survei */
                 <div className="bg-white rounded-xl border border-gray-100 p-16 flex flex-col items-center justify-center text-center gap-3">
                     <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2">

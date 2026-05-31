@@ -81,6 +81,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/manajemen-survei/{id}', [SurveiController::class, 'update'])->name('survei.update');
         Route::delete('/manajemen-survei/{id}', [SurveiController::class, 'destroy'])->name('survei.destroy');
 
+        // Data per Level (Admin)
+        Route::get('/data-per-level', [LaporanController::class, 'dataPerLevel'])->name('data-per-level.index');
+
         // Wilayah Kerja
         Route::get('/wilayah-kerja', [WilayahKerjaController::class, 'index'])->name('wilayah-kerja.index');
         

@@ -214,7 +214,7 @@ export default function Login() {
                                 letterSpacing: '1.3px',
                                 textTransform: 'uppercase',
                             }}>
-                                  Monitoring Sistem <br/> Sensus Ekonomi 2026
+                                  Pinrang Monitoring <br/> Survei dan Sensus
                             </p>
                             <p style={{
                                 margin: 0,

@@ -9,7 +9,6 @@ use Inertia\Inertia;
 use App\Models\Laporan;
 use App\Models\Survei;
 use App\Models\Pcl;
-use App\Models\Pml;
 use App\Models\Kecamatan;
 use App\Models\Desa;
 use App\Models\Sls;
@@ -23,8 +22,11 @@ class LaporanController extends Controller
      * - PML   : laporan milik PML-nya saja
      * - PCL   : laporan milik PCL-nya saja
      */
-    public function index()
+    public function index(Request $request)
     {
+        $selectedSurvei = $request->query('survei_id');
+        $selectedTab = $request->query('tab');
+        $selectedDate = $request->query('tanggal');
         $user  = Auth::user();
         $query = Laporan::with(['survei', 'pcl', 'pml', 'kecamatan', 'desa', 'sls']);
 
@@ -135,12 +137,120 @@ class LaporanController extends Controller
             $surveis = Survei::select('id', 'nama_survei')->get();
         }
 
+        // Data PCL yang belum submit laporan hari ini (untuk PML)
+        $pclsBelumKirim = [];
+        if ($user->role === 'PML') {
+            $pml = $user->pml;
+            // Gunakan timezone Asia/Jakarta (WIB)
+            $today = now('Asia/Jakarta')->toDateString();
+            $reportDate = $selectedDate ?: $today;
+
+            if ($pml) {
+                // Hanya hitung "belum kirim" ketika PML memilih satu survei tertentu
+                if ($selectedSurvei) {
+                    // Pastikan survei tersebut memang menjadi tanggung jawab PML
+                    $isResponsible = $pml->surveis()->where('survei.id', $selectedSurvei)->exists();
+
+                    if ($isResponsible) {
+                        $pmlSurveiIds = [$selectedSurvei];
+
+                        // Ambil semua PCL yang terdaftar pada survei tersebut
+                        // dan belum memiliki laporan untuk tanggal filter terpilih
+                        $pclsBelum = Pcl::whereHas('surveis', function ($query) use ($pmlSurveiIds) {
+                                $query->whereIn('survei.id', $pmlSurveiIds);
+                            })
+                            ->whereDoesntHave('laporan', function ($query) use ($pmlSurveiIds, $reportDate) {
+                                $query->whereIn('survei_id', $pmlSurveiIds)
+                                    ->whereDate('tanggal', $reportDate);
+                            })
+                            ->get();
+
+                        $pclsBelumKirim = $pclsBelum->map(function ($pcl) {
+                            return [
+                                'pcl_id'         => $pcl->id,
+                                'nama_pcl'       => $pcl->nama_pcl,
+                                'asal_kecamatan' => $pcl->asal_kecamatan,
+                                'desa'           => $pcl->desa,
+                                'sls'            => $pcl->sls,
+                                'no_telp'        => $pcl->no_telp,
+                            ];
+                        })->unique('pcl_id')->values()->toArray();
+                    }
+                }
+            }
+        }
+
         return Inertia::render('Laporan/Index', [
-            'laporans'     => $laporans,
-            'surveis'      => $surveis,
-            'pmlBySurvei'  => $pmlBySurvei,
-            'pclsBySurvei' => $pclsBySurvei,
-            'role'         => $user->role,
+            'laporans'        => $laporans,
+            'surveis'         => $surveis,
+            'pmlBySurvei'     => $pmlBySurvei,
+            'pclsBySurvei'    => $pclsBySurvei,
+            'pclsBelumKirim'  => $pclsBelumKirim,
+            'selectedSurvei'  => $selectedSurvei ?? null,
+            'selectedDate'    => $selectedDate ?? null,
+            'initialTab'      => $selectedTab ?? null,
+            'role'            => $user->role,
+        ]);
+    }
+
+    /**
+     * Tampilkan Data per Level untuk admin.
+     */
+    public function dataPerLevel(Request $request)
+    {
+        $selectedSurvei = $request->query('survei_id');
+        $selectedKecamatan = $request->query('kecamatan_id');
+        $selectedDesa = $request->query('desa_id');
+        $selectedSls = $request->query('sls_id');
+        $selectedTanggal = $request->query('tanggal');
+
+        $surveis = Survei::select('id', 'nama_survei')->get();
+
+        $laporans = [];
+        if ($selectedSurvei) {
+            $query = Laporan::with(['survei', 'pcl', 'pml', 'kecamatan', 'desa', 'sls'])
+                ->where('survei_id', $selectedSurvei);
+
+            if ($selectedKecamatan) {
+                $query->where('kecamatan_id', $selectedKecamatan);
+            }
+            if ($selectedDesa) {
+                $query->where('desa_id', $selectedDesa);
+            }
+            if ($selectedSls) {
+                $query->where('sls_id', $selectedSls);
+            }
+            if ($selectedTanggal) {
+                $query->whereDate('tanggal', $selectedTanggal);
+            }
+
+            $laporans = $query->orderBy('tanggal', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($laporan) {
+                    return [
+                        'id'             => $laporan->id,
+                        'nama_pcl'       => $laporan->pcl->nama_pcl ?? '-',
+                        'nama_pml'       => $laporan->pml->nama_pml ?? '-',
+                        'tanggal'        => $laporan->tanggal,
+                        'nama_kecamatan' => $laporan->kecamatan->nama ?? '-',
+                        'nama_desa'      => $laporan->desa->nama ?? '-',
+                        'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
+                        'data_usaha'     => $laporan->data_usaha,
+                        'data_keluarga'  => $laporan->data_keluarga,
+                        'data_submit'    => $laporan->data_submit,
+                    ];
+                });
+        }
+
+        return Inertia::render('DataPerLevel', [
+            'surveis' => $surveis,
+            'laporans' => $laporans,
+            'selectedSurvei' => $selectedSurvei,
+            'selectedKecamatan' => $selectedKecamatan,
+            'selectedDesa' => $selectedDesa,
+            'selectedSls' => $selectedSls,
+            'selectedTanggal' => $selectedTanggal,
         ]);
     }
 
