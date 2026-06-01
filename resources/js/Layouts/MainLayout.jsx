@@ -309,21 +309,12 @@ export default function MainLayout({ children, title = '' }) {
                     <button
                         onClick={() => setSidebarOpen(!sidebarOpen)}
                         className="text-gray-400 hover:text-gray-600 transition-colors md:hidden"
+                        aria-label="Buka menu"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
-                    <div className="md:hidden">
-                        <button
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </button>
-                    </div>
                     <h1 className="text-gray-800 font-semibold text-sm md:text-base flex-1 truncate">{title}</h1>
                 </header>
 
