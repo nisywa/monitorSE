@@ -246,6 +246,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
 
     const totalDataUsahaByFilter = displayStats?.total_data_usaha ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_usaha || 0), 0);
     const totalDataKeluargaByFilter = displayStats?.total_data_keluarga ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_keluarga || 0), 0);
+    const totalDataCacahByFilter = displayStats?.total_data_cacah ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_cacah || 0), 0);
     const totalDataSubmitByFilter = displayStats?.total_data_submit ?? pclChartData.reduce((sum, pcl) => sum + (pcl.data_submit || 0), 0);
     const totalLaporanByFilter = displayStats?.total_laporan ?? pclChartData.reduce((sum, pcl) => sum + (pcl.laporan_count || 0), 0);
 
@@ -263,6 +264,12 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                 value: pcl.data_keluarga || 0,
                 color: '#10B981',
                 label: 'Data Keluarga'
+            },
+            {
+                name: 'Data Cacah',
+                value: pcl.data_cacah || 0,
+                color: '#6366F1',
+                label: 'Data Cacah'
             },
             {
                 name: 'Data Submit',
@@ -429,7 +436,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
             {/* Charts Per Survei & PML */}
             {(role === 'admin' || role === 'PML') && selectedSurvei && selectedPml && (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                             <p className="text-sm font-medium text-gray-600 mb-2">Total Data Usaha</p>
                             <p className="text-3xl font-bold text-blue-600">{totalDataUsahaByFilter.toLocaleString('id-ID')}</p>
@@ -437,6 +444,10 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                             <p className="text-sm font-medium text-gray-600 mb-2">Total Data Keluarga</p>
                             <p className="text-3xl font-bold text-green-600">{totalDataKeluargaByFilter.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Total Data Cacah</p>
+                            <p className="text-3xl font-bold text-indigo-600">{totalDataCacahByFilter.toLocaleString('id-ID')}</p>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                             <p className="text-sm font-medium text-gray-600 mb-2">Total Data Submit</p>

@@ -243,6 +243,7 @@ class DashboardController extends Controller
                 'nama_pcl' => $pcl->nama_pcl,
                 'data_usaha' => $laporanQuery->sum('data_usaha'),
                 'data_keluarga' => $laporanQuery->sum('data_keluarga'),
+                'data_cacah' => $laporanQuery->sum('data_cacah'),
                 'data_submit' => $laporanQuery->sum('data_submit'),
                 'laporan_count' => $laporanQuery->count(),
             ];
@@ -250,18 +251,17 @@ class DashboardController extends Controller
 
         return response()->json([
             'pcls' => $result,
-            'pml_name' => $pml->nama_pml
         ]);
     }
 
+    /**
+     * Ambil statistik lokasi untuk Survei dan PML tertentu
+     */
     public function getStatsByLocation(Request $request)
     {
         $user = Auth::user();
         $surveiId = $request->query('survei_id');
         $pmlId = $request->query('pml_id');
-        $kecamatanId = $request->query('kecamatan_id');
-        $desaId = $request->query('desa_id');
-        $slsId = $request->query('sls_id');
 
         if (!$surveiId || !$pmlId) {
             return response()->json([
@@ -271,6 +271,7 @@ class DashboardController extends Controller
                 'total_laporan' => 0,
                 'total_data_usaha' => 0,
                 'total_data_keluarga' => 0,
+                'total_data_cacah' => 0,
                 'total_data_submit' => 0,
             ]);
         }
@@ -285,6 +286,7 @@ class DashboardController extends Controller
                     'total_laporan' => 0,
                     'total_data_usaha' => 0,
                     'total_data_keluarga' => 0,
+                    'total_data_cacah' => 0,
                     'total_data_submit' => 0,
                 ]);
             }
@@ -293,14 +295,14 @@ class DashboardController extends Controller
         $query = Laporan::where('survei_id', $surveiId)
             ->where('pml_id', $pmlId);
 
-        if ($kecamatanId) {
-            $query->where('kecamatan_id', $kecamatanId);
+        if ($request->query('kecamatan_id')) {
+            $query->where('kecamatan_id', $request->query('kecamatan_id'));
         }
-        if ($desaId) {
-            $query->where('desa_id', $desaId);
+        if ($request->query('desa_id')) {
+            $query->where('desa_id', $request->query('desa_id'));
         }
-        if ($slsId) {
-            $query->where('sls_id', $slsId);
+        if ($request->query('sls_id')) {
+            $query->where('sls_id', $request->query('sls_id'));
         }
 
         $totalLaporan = $query->count();
@@ -309,6 +311,7 @@ class DashboardController extends Controller
         $totalSurvei = (clone $query)->distinct()->count('survei_id');
         $totalDataUsaha = (clone $query)->sum('data_usaha');
         $totalDataKeluarga = (clone $query)->sum('data_keluarga');
+        $totalDataCacah = (clone $query)->sum('data_cacah');
         $totalDataSubmit = (clone $query)->sum('data_submit');
 
         return response()->json([
@@ -318,6 +321,7 @@ class DashboardController extends Controller
             'total_laporan' => $totalLaporan,
             'total_data_usaha' => $totalDataUsaha,
             'total_data_keluarga' => $totalDataKeluarga,
+            'total_data_cacah' => $totalDataCacah,
             'total_data_submit' => $totalDataSubmit,
         ]);
     }

@@ -146,6 +146,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
     const totalDataUsaha = laporans.reduce((sum, laporan) => sum + (Number(laporan.data_usaha) || 0), 0);
     const totalDataKeluarga = laporans.reduce((sum, laporan) => sum + (Number(laporan.data_keluarga) || 0), 0);
     const totalDataSubmit = laporans.reduce((sum, laporan) => sum + (Number(laporan.data_submit) || 0), 0);
+    const totalDataCacah = laporans.reduce((sum, laporan) => sum + (Number(laporan.data_cacah) || 0), 0);
 
     return (
         <MainLayout title="Data per level">
@@ -248,7 +249,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                         {tanggal ? `Menampilkan laporan untuk tanggal ${tanggal}.` : 'Pilih tanggal untuk membatasi laporan per level.'}
                     </div>
 
-                    <div className="grid gap-4 mb-6 md:grid-cols-4">
+                    <div className="grid gap-4 mb-6 md:grid-cols-5">
                         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 shadow-sm">
                             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Total Laporan</p>
                             <p className="mt-3 text-2xl font-semibold text-blue-900">{totalLaporan}</p>
@@ -256,6 +257,10 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                         <div className="rounded-2xl border border-green-100 bg-green-50 p-4 shadow-sm">
                             <p className="text-xs font-semibold uppercase tracking-wide text-green-600">Total Data Usaha</p>
                             <p className="mt-3 text-2xl font-semibold text-green-900">{totalDataUsaha}</p>
+                        </div>
+                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Total Data Cacah</p>
+                            <p className="mt-3 text-2xl font-semibold text-indigo-900">{totalDataCacah}</p>
                         </div>
                         <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-4 shadow-sm">
                             <p className="text-xs font-semibold uppercase tracking-wide text-yellow-700">Total Data Keluarga</p>
