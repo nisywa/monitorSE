@@ -231,7 +231,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                 'Nama PCL': 'Contoh Nama',
                 'Email': 'contoh@example.com',
                 'Tanggal Lahir': '1990-05-15',
-                'Asal Kecamatan': 'Kecamatan A',
+                'Kecamatan': 'Kecamatan A',
                 'Desa': 'Desa A',
                 'SLS': '001.01.01',
                 'Sobat ID': 'SOBAT0001',

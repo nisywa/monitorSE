@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 
@@ -36,11 +36,14 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         sls_id: '',
         tanggal: '',
         data_usaha: '',
+        data_cacah: '',
         data_keluarga: '',
         data_submit: '',
     });
 
     const isReadOnlyMode = editData && role === 'PML';
+
+    const { auth } = usePage().props;
 
     const openAdd = () => {
         setEditData(null);
@@ -49,6 +52,42 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         setDesaList([]);
         setSlsList([]);
         setShowModal(true);
+        if (role === 'PCL' && auth?.user?.pcl) {
+            prefillFromPcl(auth.user.pcl);
+        }
+    };
+
+    const prefillFromPcl = async (pcl) => {
+        try {
+            if (!pcl) return;
+            // fetch kecamatan list directly to ensure we have up-to-date data
+            const kecResp = await axios.get('/api/wilayah-kerja/kecamatan-list');
+            const kecData = kecResp.data.data || [];
+            setKecamatanList(kecData);
+
+            const kec = kecData.find(k => k.nama === (pcl.asal_kecamatan || ''));
+            if (!kec) return;
+
+            setData('kecamatan_id', String(kec.id));
+
+            const desaResp = await axios.get(`/api/wilayah-kerja/desa/${kec.id}`);
+            const desaData = desaResp.data.data || [];
+            setDesaList(desaData);
+            const desa = desaData.find(d => d.nama === (pcl.desa || ''));
+            if (!desa) return;
+
+            setData('desa_id', String(desa.id));
+
+            const slsResp = await axios.get(`/api/wilayah-kerja/sls/${desa.id}`);
+            const slsData = slsResp.data.data || [];
+            setSlsList(slsData);
+            const slsMatch = slsData.find(s => String(s.nomor_sls) === String(pcl.sls) || s.nama === pcl.sls);
+            if (slsMatch) {
+                setData('sls_id', String(slsMatch.id));
+            }
+        } catch (error) {
+            console.error('Error prefillFromPcl:', error);
+        }
     };
 
     const openEdit = (laporan) => {
@@ -60,6 +99,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
             desa_id: String(laporan.desa_id || ''),
             sls_id: String(laporan.sls_id || ''),
             tanggal: laporan.tanggal,
+            data_cacah: String(laporan.data_cacah ?? ''),
             data_usaha: String(laporan.data_usaha),
             data_keluarga: String(laporan.data_keluarga),
             data_submit: String(laporan.data_submit ?? 0),
@@ -112,6 +152,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     const totalDataUsaha = filtered.reduce((sum, l) => sum + (l.data_usaha || 0), 0);
     const totalDataKeluarga = filtered.reduce((sum, l) => sum + (l.data_keluarga || 0), 0);
     const totalDataSubmit = filtered.reduce((sum, l) => sum + (l.data_submit || 0), 0);
+    const totalDataCacah = filtered.reduce((sum, l) => sum + (l.data_cacah || 0), 0);
 
     const selectedPml = data.survei_id ? pmlBySurvei?.[data.survei_id] ?? null : null;
 
@@ -551,7 +592,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
             ) : (
                 <>
                     {/* Ringkasan Card */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                         <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -561,6 +602,20 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                                     <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600 mb-1">Total Data Cacah</p>
+                                    <p className="text-3xl font-bold text-indigo-600">{totalDataCacah.toLocaleString('id-ID')}</p>
+                                </div>
+                                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h4l3 8 4-16 3 8h4" />
                                     </svg>
                                 </div>
                             </div>
@@ -682,6 +737,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usaha</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Keluarga</th>
+                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cacah</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Submit</th>
                                         {(role === 'PML' || role === 'PCL') && (
                                             <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
@@ -708,6 +764,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.nomor_sls || laporan.nomor_sls || '-'}</td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.data_usaha}</td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.data_keluarga}</td>
+                                                <td className="px-5 py-3.5 text-gray-600">{laporan.data_cacah ?? 0}</td>
                                             <td className="px-5 py-3.5 text-gray-600">{laporan.data_submit ?? 0}</td>
                                             {(role === 'PML' || role === 'PCL') && (
                                               <td className="px-5 py-3.5 text-center">
@@ -843,13 +900,24 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                         </div>
                     </div>
 
-                    <div>
+                    <div className="grid grid-cols-2 gap-4">
+                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Data Cacah</label>
+                            <input type="number" min="0" value={data.data_cacah} onChange={e => setData('data_cacah', e.target.value)}
+                                disabled={isReadOnlyMode}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.data_cacah ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                placeholder="0" />
+                            {errors.data_cacah && <p className="text-red-500 text-xs mt-1">{errors.data_cacah}</p>}
+                        </div>
+                        <div>
+
                         <label className="block text-sm font-medium text-gray-700 mb-1">Data Submit</label>
                         <input type="number" min="0" value={data.data_submit} onChange={e => setData('data_submit', e.target.value)}
                             disabled={isReadOnlyMode}
                             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.data_submit ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="0" />
                         {errors.data_submit && <p className="text-red-500 text-xs mt-1">{errors.data_submit}</p>}
+                            </div>
                     </div>
 
                     {isReadOnlyMode && (

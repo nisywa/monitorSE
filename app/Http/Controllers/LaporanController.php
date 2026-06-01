@@ -50,6 +50,7 @@ class LaporanController extends Controller
                     'nama_pml'       => $laporan->pml->nama_pml ?? '-',
                     'pml_id'         => $laporan->pml_id,
                     'tanggal'        => $laporan->tanggal,
+                    'data_cacah'     => $laporan->data_cacah,
                     'data_usaha'     => $laporan->data_usaha,
                     'data_keluarga'  => $laporan->data_keluarga,
                     'data_submit'    => $laporan->data_submit,
@@ -233,6 +234,7 @@ class LaporanController extends Controller
                         'nama_pcl'       => $laporan->pcl->nama_pcl ?? '-',
                         'nama_pml'       => $laporan->pml->nama_pml ?? '-',
                         'tanggal'        => $laporan->tanggal,
+                        'data_cacah'     => $laporan->data_cacah,
                         'nama_kecamatan' => $laporan->kecamatan->nama ?? '-',
                         'nama_desa'      => $laporan->desa->nama ?? '-',
                         'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
@@ -270,11 +272,14 @@ class LaporanController extends Controller
             'kecamatan_id' => 'required|exists:kecamatan,id',
             'desa_id'      => 'required|exists:desa,id',
             'sls_id'       => 'required|exists:sls,id',
+            'data_cacah'   => 'required|integer|min:0',
             'tanggal'      => 'required|date',
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
             'data_submit'  => 'required|integer|min:0',
         ], [
+            'data_cacah.required'   => 'Data cacah wajib diisi.',
+            'data_cacah.integer'    => 'Data cacah harus berupa angka.',
             'survei_id.required'     => 'Survei wajib dipilih.',
             'survei_id.exists'       => 'Survei tidak ditemukan.',
             'pml_id.required'        => 'PML wajib diisi. Pilih survei terlebih dahulu.',
@@ -325,6 +330,7 @@ class LaporanController extends Controller
             'nama_desa'      => $desa->nama,
             'nomor_sls'      => $sls->nomor_sls,
             'tanggal'        => $request->tanggal,
+            'data_cacah'     => $request->data_cacah,
             'data_usaha'     => $request->data_usaha,
             'data_keluarga'  => $request->data_keluarga,
             'data_submit'    => $request->data_submit,
@@ -353,11 +359,12 @@ class LaporanController extends Controller
             'sls_id'         => $laporan->sls_id,
             'nama_kecamatan' => $laporan->kecamatan->nama ?? '-',
             'nama_desa'      => $laporan->desa->nama ?? '-',
-            'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
-            'tanggal'        => $laporan->tanggal,
-            'data_usaha'     => $laporan->data_usaha,
-            'data_keluarga'  => $laporan->data_keluarga,
-            'data_submit'    => $laporan->data_submit,
+                    'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
+                    'tanggal'        => $laporan->tanggal,
+                    'data_cacah'     => $laporan->data_cacah,
+                    'data_usaha'     => $laporan->data_usaha,
+                    'data_keluarga'  => $laporan->data_keluarga,
+                    'data_submit'    => $laporan->data_submit,
         ]);
     }
 
@@ -374,6 +381,7 @@ class LaporanController extends Controller
             'kecamatan_id' => 'required|exists:kecamatan,id',
             'desa_id'      => 'required|exists:desa,id',
             'sls_id'       => 'required|exists:sls,id',
+            'data_cacah'   => 'nullable|integer|min:0',
             'tanggal'      => 'required|date',
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
@@ -399,6 +407,7 @@ class LaporanController extends Controller
         }
 
         $laporan->update([
+            'data_cacah'     => $request->data_cacah ?? $laporan->data_cacah,
             'kecamatan_id'   => $request->kecamatan_id,
             'desa_id'        => $request->desa_id,
             'sls_id'         => $request->sls_id,

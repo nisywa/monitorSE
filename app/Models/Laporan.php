@@ -13,7 +13,7 @@ use App\Models\Pml;
 class Laporan extends Model
 {
     protected $table = 'laporan';
-    protected $fillable = ['survei_id', 'pcl_id', 'pml_id', 'kecamatan_id', 'desa_id', 'sls_id', 'nama_kecamatan', 'nama_desa', 'nomor_sls', 'tanggal', 'data_usaha', 'data_keluarga', 'data_submit'];
+    protected $fillable = ['survei_id', 'pcl_id', 'pml_id', 'kecamatan_id', 'desa_id', 'sls_id', 'nama_kecamatan', 'nama_desa', 'nomor_sls', 'tanggal', 'data_usaha', 'data_keluarga', 'data_submit', 'data_cacah'];
 
     // Many-to-One: Many Laporan : 1 Survei
     public function survei()
