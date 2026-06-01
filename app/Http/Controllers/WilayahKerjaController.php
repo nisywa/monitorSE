@@ -7,6 +7,7 @@ use App\Models\Desa;
 use App\Models\Sls;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class WilayahKerjaController extends Controller
 {
@@ -286,6 +287,83 @@ class WilayahKerjaController extends Controller
                 'success' => false,
                 'message' => 'Gagal menghapus SLS: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Import data Wilayah Kerja (Kecamatan, Desa, SLS) dari Excel
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'rows'                          => 'required|array|min:1',
+            'rows.*.kecamatan'              => 'required|string|max:255',
+            'rows.*.desa'                   => 'required|string|max:255',
+            'rows.*.sls'                    => 'required|string|max:255',
+        ], [
+            'rows.required'                 => 'Data import tidak boleh kosong.',
+            'rows.*.kecamatan.required'     => 'Nama kecamatan wajib diisi.',
+            'rows.*.desa.required'          => 'Nama desa wajib diisi.',
+            'rows.*.sls.required'           => 'Nomor SLS wajib diisi.',
+        ]);
+
+        $rows = $request->rows;
+        $berhasil = 0;
+        $errors = [];
+
+        try {
+            DB::transaction(function () use ($rows, &$berhasil, &$errors) {
+                foreach ($rows as $idx => $row) {
+                    $rowNum = $idx + 1;
+                    $namaKecamatan = trim($row['kecamatan']);
+                    $namaDesa = trim($row['desa']);
+                    $nomorSls = trim($row['sls']);
+
+                    try {
+                        // Cari atau buat kecamatan
+                        $kecamatan = Kecamatan::firstOrCreate(
+                            [
+                                'nama' => $namaKecamatan,
+                                'kabupaten' => 'Pinrang',
+                                'provinsi' => 'Sulawesi Selatan'
+                            ]
+                        );
+
+                        // Cari atau buat desa
+                        $desa = Desa::firstOrCreate(
+                            [
+                                'kecamatan_id' => $kecamatan->id,
+                                'nama' => $namaDesa
+                            ]
+                        );
+
+                        // Cari atau buat SLS (dengan unique nomor_sls)
+                        $slsExists = Sls::where('desa_id', $desa->id)
+                            ->where('nomor_sls', $nomorSls)
+                            ->exists();
+
+                        if (!$slsExists) {
+                            Sls::create([
+                                'desa_id' => $desa->id,
+                                'nomor_sls' => $nomorSls,
+                            ]);
+                        }
+
+                        $berhasil++;
+                    } catch (\Exception $e) {
+                        $errors[] = "Baris {$rowNum}: {$e->getMessage()}";
+                    }
+                }
+            });
+
+            $message = "{$berhasil} data wilayah kerja berhasil diimport.";
+            if (!empty($errors)) {
+                $message .= " Beberapa baris gagal: " . implode(', ', array_slice($errors, 0, 3));
+            }
+
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal mengimport data: ' . $e->getMessage());
         }
     }
 }

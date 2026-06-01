@@ -101,6 +101,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/api/wilayah-kerja/sls', [WilayahKerjaController::class, 'storeSls'])->name('sls.store');
         Route::put('/api/wilayah-kerja/sls/{id}', [WilayahKerjaController::class, 'updateSls'])->name('sls.update');
         Route::delete('/api/wilayah-kerja/sls/{id}', [WilayahKerjaController::class, 'destroySls'])->name('sls.destroy');
+
+        // Import Wilayah Kerja
+        Route::post('/wilayah-kerja/import', [WilayahKerjaController::class, 'import'])->name('wilayah-kerja.import');
     });
 
     // Wilayah Kerja API untuk dropdown kecamatan/desa/sls (PCL juga bisa akses)

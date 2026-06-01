@@ -1,0 +1,60 @@
+# TEMPLATE DATA WILAYAH KERJA
+
+## Instruksi Penggunaan
+
+1. Copy file ini dan rename dengan nama yang sesuai
+2. Isi kolom Kecamatan, Desa, dan SLS dengan data Anda
+3. Jangan ubah nama kolom (harus sama persis)
+4. Jangan hapus baris header
+5. Setiap baris = 1 data wilayah kerja
+6. Upload file ke sistem MonitorSE melalui fitur "Import Excel"
+
+## Daftar Kecamatan Pinrang (Reference)
+
+Berikut adalah daftar kecamatan di Kabupaten Pinrang, Sulawesi Selatan yang dapat digunakan:
+
+1. Patampanua
+2. Suppa
+3. Mattirosompe
+4. Cempa
+5. Mamuju
+6. Lanrisang
+7. Watang Sawitto
+8. Tondok Tallasa
+
+## Format SLS
+
+Format nomor SLS adalah: `XXX.XX.XX`
+- 3 digit pertama: Nomor Blok Sensus
+- 2 digit kedua: Nomor Sensus Lengkap di Blok Sensus
+- 2 digit ketiga: Nomor Segmen
+
+Contoh: 001.01.01, 001.01.02, 002.02.01, dst
+
+## Catatan Penting
+
+- Semua kolom HARUS diisi, tidak boleh ada yang kosong
+- Kecamatan harus sesuai dengan daftar di atas
+- Nomor SLS harus unik di setiap Desa
+- Hindari spasi berlebih di depan atau belakang
+- Gunakan karakter latin standar (tidak ada karakter khusus yang aneh)
+- File harus berformat .xlsx atau .xls (Excel)
+
+## Jumlah Data
+
+- Minimal import: 1 baris data
+- Maksimal per batch: Tidak terbatas (namun disarankan <1000 per sekali import)
+- Rekomendasi: 100-500 baris per import untuk optimal performance
+
+## Troubleshooting
+
+Jika import gagal:
+1. Periksa nama kolom (Kecamatan, Desa, SLS) - CASE SENSITIVE
+2. Pastikan tidak ada kolom tambahan yang kosong
+3. Lihat error message yang ditampilkan di system
+4. Download template baru dari system jika sudah dimodifikasi
+5. Hubungi admin jika masalah persisten
+
+---
+
+Last Updated: 2026-06-01
