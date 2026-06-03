@@ -284,6 +284,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Desa</th>
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Data Usaha</th>
+                                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Data Cacah</th>
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Data Keluarga</th>
                                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Data Submit</th>
                                 </tr>
@@ -291,7 +292,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                             <tbody className="divide-y divide-gray-50">
                                 {laporans.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="text-center py-12 text-gray-400">Tidak ada laporan untuk filter saat ini.</td>
+                                        <td colSpan={11} className="text-center py-12 text-gray-400">Tidak ada laporan untuk filter saat ini.</td>
                                     </tr>
                                 ) : laporans.map((laporan, index) => (
                                     <tr key={laporan.id} className="hover:bg-gray-50 transition-colors">
@@ -303,6 +304,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                                         <td className="px-4 py-3 text-gray-600">{laporan.nama_desa}</td>
                                         <td className="px-4 py-3 text-gray-600">{laporan.nomor_sls}</td>
                                         <td className="px-4 py-3 text-gray-600">{laporan.data_usaha}</td>
+                                        <td className="px-4 py-3 text-gray-600">{laporan.data_cacah ?? 0}</td>
                                         <td className="px-4 py-3 text-gray-600">{laporan.data_keluarga}</td>
                                         <td className="px-4 py-3 text-gray-600">{laporan.data_submit}</td>
                                     </tr>
