@@ -31,32 +31,36 @@ class LaporanController extends Controller
         $query = Laporan::with(['survei', 'pcl', 'pml', 'kecamatan', 'desa', 'sls']);
 
         if ($user->role === 'PML') {
-            $pml   = $user->pml;
-            $query->where('pml_id', $pml->id);
+            $pml = $user->pml;
+            if ($pml && $pml->id) {
+                $query->where('pml_id', $pml->id);
+            }
         } elseif ($user->role === 'PCL') {
-            $pcl   = $user->pcl;
-            $query->where('pcl_id', $pcl->id);
+            $pcl = $user->pcl;
+            if ($pcl && $pcl->id) {
+                $query->where('pcl_id', $pcl->id);
+            }
         }
 
         $laporans = $query->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($laporan) {
                 return [
-                    'id'             => $laporan->id,
+                    'id'             => (int) $laporan->id,
                     'nama_survei'    => $laporan->survei->nama_survei ?? '-',
-                    'survei_id'      => $laporan->survei_id,
+                    'survei_id'      => (int) $laporan->survei_id,
                     'nama_pcl'       => $laporan->pcl->nama_pcl ?? '-',
-                    'pcl_id'         => $laporan->pcl_id,
+                    'pcl_id'         => (int) $laporan->pcl_id,
                     'nama_pml'       => $laporan->pml->nama_pml ?? '-',
-                    'pml_id'         => $laporan->pml_id,
+                    'pml_id'         => (int) $laporan->pml_id,
                     'tanggal'        => $laporan->tanggal,
-                    'data_cacah'     => $laporan->data_cacah,
-                    'data_usaha'     => $laporan->data_usaha,
-                    'data_keluarga'  => $laporan->data_keluarga,
-                    'data_submit'    => $laporan->data_submit,
-                    'kecamatan_id'   => $laporan->kecamatan_id,
-                    'desa_id'        => $laporan->desa_id,
-                    'sls_id'         => $laporan->sls_id,
+                    'data_cacah'     => (int) ($laporan->data_cacah ?? 0),
+                    'data_usaha'     => (int) ($laporan->data_usaha ?? 0),
+                    'data_keluarga'  => (int) ($laporan->data_keluarga ?? 0),
+                    'data_submit'    => (int) ($laporan->data_submit ?? 0),
+                    'kecamatan_id'   => (int) ($laporan->kecamatan_id ?? 0),
+                    'desa_id'        => (int) ($laporan->desa_id ?? 0),
+                    'sls_id'         => (int) ($laporan->sls_id ?? 0),
                     'nama_kecamatan' => $laporan->kecamatan->nama ?? '-',
                     'nama_desa'      => $laporan->desa->nama ?? '-',
                     'nomor_sls'      => $laporan->sls->nomor_sls ?? '-',
@@ -72,24 +76,29 @@ class LaporanController extends Controller
         if ($user->role === 'PCL') {
             $pcl     = $user->pcl;
             // Ambil survei yang terhubung dengan PCL ini melalui relasi many-to-many
-            $surveis = $pcl->surveis()
-                ->select('survei.id', 'survei.nama_survei')
-                ->get();
+            if ($pcl) {
+                $surveis = $pcl->surveis()
+                    ->select('survei.id', 'survei.nama_survei')
+                    ->get();
 
-            // Bangun mapping survei -> PML berdasarkan relasi PCL -> PML -> Survei
-            $pmlBySurvei = $pcl->pmls()->with('surveis')->get()
-                ->flatMap(function ($pml) {
-                    return $pml->surveis->map(fn ($survei) => [
-                        'survei_id' => $survei->id,
-                        'pml_id'    => $pml->id,
-                        'nama_pml'  => $pml->nama_pml,
-                    ]);
-                })
-                ->unique('survei_id')
-                ->mapWithKeys(fn ($item) => [$item['survei_id'] => [
-                    'id'       => $item['pml_id'],
-                    'nama_pml' => $item['nama_pml'],
-                ]])->toArray();
+                // Bangun mapping survei -> PML berdasarkan relasi PCL -> PML -> Survei
+                $pmlBySurvei = $pcl->pmls()->with('surveis')->get()
+                    ->flatMap(function ($pml) {
+                        return $pml->surveis->map(fn ($survei) => [
+                            'survei_id' => $survei->id,
+                            'pml_id'    => $pml->id,
+                            'nama_pml'  => $pml->nama_pml,
+                        ]);
+                    })
+                    ->unique('survei_id')
+                    ->mapWithKeys(fn ($item) => [$item['survei_id'] => [
+                        'id'       => $item['pml_id'],
+                        'nama_pml' => $item['nama_pml'],
+                    ]])->toArray();
+            } else {
+                $surveis = collect();
+                $pmlBySurvei = [];
+            }
         } elseif ($user->role === 'PML') {
             $pml = $user->pml;
 
@@ -136,6 +145,10 @@ class LaporanController extends Controller
             }
         } elseif ($user->role === 'admin') {
             $surveis = Survei::select('id', 'nama_survei')->get();
+        }
+
+        if (!$selectedSurvei && in_array($user->role, ['PCL', 'PML']) && collect($surveis)->isNotEmpty()) {
+            $selectedSurvei = $surveis->first()->id;
         }
 
         // Data PCL yang belum submit laporan hari ini (untuk PML)
@@ -187,7 +200,7 @@ class LaporanController extends Controller
             'pmlBySurvei'     => $pmlBySurvei,
             'pclsBySurvei'    => $pclsBySurvei,
             'pclsBelumKirim'  => $pclsBelumKirim,
-            'selectedSurvei'  => $selectedSurvei ?? null,
+            'selectedSurvei'  => $selectedSurvei ? (int) $selectedSurvei : null,
             'selectedDate'    => $selectedDate ?? null,
             'initialTab'      => $selectedTab ?? null,
             'role'            => $user->role,

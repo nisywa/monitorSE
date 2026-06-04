@@ -16,6 +16,7 @@ use App\Http\Controllers\PclController;
 use App\Http\Controllers\SurveiController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\WilayahKerjaController;
+use App\Http\Controllers\DebugController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,6 +43,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
     Route::get('/api/dashboard/chart-data-by-pml', [DashboardController::class, 'getChartDataByPml'])->name('dashboard.chart-data-by-pml');
     Route::get('/api/dashboard/stats-by-location', [DashboardController::class, 'getStatsByLocation'])->name('dashboard.stats-by-location');
+
+    // DEBUG Routes (untuk troubleshooting relasi user-pcl-laporan)
+    Route::get('/debug/pcl-laporan', [DebugController::class, 'debugPclLaporan'])->name('debug.pcl-laporan');
+    Route::get('/debug/all-laporan', [DebugController::class, 'debugAllLaporan'])->name('debug.all-laporan');
 
     /*
     |------------------------------------------------------------------

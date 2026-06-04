@@ -10,7 +10,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     const [editData, setEditData] = useState(null);
     const [search, setSearch] = useState('');
     const [filterPclId, setFilterPclId] = useState('');
-    const [selectedSurveiId, setSelectedSurveiId] = useState(selectedSurvei ?? '');
+    const [selectedSurveiId, setSelectedSurveiId] = useState(selectedSurvei ? String(selectedSurvei) : '');
     const [selectedFilterDate, setSelectedFilterDate] = useState(selectedDate ?? new Date().toISOString().slice(0, 10));
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -42,6 +42,15 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     });
 
     const isReadOnlyMode = editData && role === 'PML';
+
+    // Sync selectedSurveiId when selectedSurvei prop changes (e.g., on page reload)
+    useEffect(() => {
+        if (selectedSurvei) {
+            setSelectedSurveiId(String(selectedSurvei));
+        } else if ((role === 'PCL' || role === 'PML') && surveis?.length > 0 && !selectedSurveiId) {
+            setSelectedSurveiId(String(surveis[0]?.id || ''));
+        }
+    }, [selectedSurvei, surveis, role]);
 
     const { auth } = usePage().props;
 
@@ -127,32 +136,71 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         }
     };
 
+    // Utility function to safely normalize and compare IDs (string or number)
+    const normalizeId = (id) => {
+        if (id === null || id === undefined || id === '') return null;
+        const parsed = parseInt(id, 10);
+        return isNaN(parsed) ? null : parsed;
+    };
+
+    // Utility function to get normalized ID from laporan record
+    const getLaporanId = (laporan, field) => {
+        return normalizeId(laporan[field]);
+    };
+
     const pageTitle = role === 'admin' ? 'List Laporan' : 'Laporan Saya';
 
-    // Jika belum memilih survei, data kosong
-    const laporanBySurvei = selectedSurveiId
-        ? laporans?.filter(l => l.survei_id === parseInt(selectedSurveiId)) ?? []
-        : [];
+    // For PCL/PML: always show all data. For admin: only show if survey selected.
+    const effectiveSurveiId = normalizeId(selectedSurveiId);
+    
+    // DEBUG: Log data structure for troubleshooting
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        console.log('[LaporanIndex] role:', role, 'selectedSurveiId:', selectedSurveiId, 'effectiveSurveiId:', effectiveSurveiId);
+        console.log('[LaporanIndex] laporans count:', laporans?.length, 'surveis count:', surveis?.length);
+        if (laporans && laporans.length > 0) {
+            console.log('[LaporanIndex] First laporan:', JSON.stringify(laporans[0]));
+        }
+    }
+    
+    const laporanBySurvei = effectiveSurveiId
+        ? (laporans?.filter(l => {
+            const lapId = normalizeId(l.survei_id);
+            return lapId === effectiveSurveiId;
+        }) ?? [])
+        : (role === 'PCL' || role === 'PML')
+            ? (laporans ?? [])
+            : [];
 
     const filtered = (activeTab === 'belumKirim' ? [] : laporanBySurvei).filter(l => {
         const searchTerm = search.toLowerCase();
         const pclOrPmlName = role === 'PCL' ? l.nama_pml : l.nama_pcl;
         const matchesSearch = role === 'PML'
             ? true
-            : l.nama_survei.toLowerCase().includes(searchTerm) || pclOrPmlName.toLowerCase().includes(searchTerm);
+            : (l.nama_survei?.toLowerCase().includes(searchTerm) || pclOrPmlName?.toLowerCase().includes(searchTerm));
         const matchesFromDate = !startDate || (l.tanggal && l.tanggal >= startDate);
         const matchesToDate = !endDate || (l.tanggal && l.tanggal <= endDate);
-        const matchesKecamatan = !filterKecamatanId || l.kecamatan_id === parseInt(filterKecamatanId);
-        const matchesDesa = !filterDesaId || l.desa_id === parseInt(filterDesaId);
-        const matchesSls = !filterSlsId || l.sls_id === parseInt(filterSlsId);
-        const matchesPcl = role === 'PML' ? (!filterPclId || l.pcl_id === parseInt(filterPclId)) : true;
+        
+        // Safe comparison for location filters - normalize all IDs before comparison
+        const laporanKecId = getLaporanId(l, 'kecamatan_id');
+        const laporanDesId = getLaporanId(l, 'desa_id');
+        const laporanSlsId = getLaporanId(l, 'sls_id');
+        const filterKecId = normalizeId(filterKecamatanId);
+        const filterDesId = normalizeId(filterDesaId);
+        const filterSls = normalizeId(filterSlsId);
+        
+        const matchesKecamatan = !filterKecId || laporanKecId === filterKecId;
+        const matchesDesa = !filterDesId || laporanDesId === filterDesId;
+        const matchesSls = !filterSls || laporanSlsId === filterSls;
+        const matchesPcl = role === 'PML' ? (!normalizeId(filterPclId) || normalizeId(l.pcl_id) === normalizeId(filterPclId)) : true;
         return matchesSearch && matchesFromDate && matchesToDate && matchesKecamatan && matchesDesa && matchesSls && matchesPcl;
     });
 
-    const totalDataUsaha = filtered.reduce((sum, l) => sum + (l.data_usaha || 0), 0);
-    const totalDataKeluarga = filtered.reduce((sum, l) => sum + (l.data_keluarga || 0), 0);
-    const totalDataSubmit = filtered.reduce((sum, l) => sum + (l.data_submit || 0), 0);
-    const totalDataCacah = filtered.reduce((sum, l) => sum + (l.data_cacah || 0), 0);
+    // Convert string values to numbers to prevent string concatenation
+    const totalDataUsaha = filtered.reduce((sum, l) => sum + (Number(l.data_usaha) || 0), 0);
+    const totalDataKeluarga = filtered.reduce((sum, l) => sum + (Number(l.data_keluarga) || 0), 0);
+    const totalDataSubmit = filtered.reduce((sum, l) => sum + (Number(l.data_submit) || 0), 0);
+    const totalDataCacah = filtered.reduce((sum, l) => sum + (Number(l.data_cacah) || 0), 0);
+    const jmlLaporan = filtered.length;
 
     const selectedPml = data.survei_id ? pmlBySurvei?.[data.survei_id] ?? null : null;
 
@@ -486,9 +534,9 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                 <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
-                {role === 'admin' && 'Anda login sebagai Admin — hanya bisa melihat laporan.'}
-                {role === 'PML'   && 'Anda login sebagai PML — dapat melihat data laporan yang diinput PCL dan menghapus jika perlu.'}
-                {role === 'PCL'   && 'Anda login sebagai PCL — dapat menambahkan laporan baru.'}
+                {role === 'admin' && 'Anda login sebagai Admin dan hanya bisa melihat laporan.'}
+                {role === 'PML'   && 'Anda login sebagai PML dan dapat melihat data laporan yang diinput PCL dan menghapus jika perlu.'}
+                {role === 'PCL'   && 'Anda login sebagai PCL dan dapat menambahkan laporan baru.'}
             </div>
 
             {/* Konten utama: tampil hanya setelah survei dipilih (untuk tab laporan) atau langsung (untuk tab belumKirim) */}
@@ -544,7 +592,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                     {!pclsBelumKirim || pclsBelumKirim.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
-                                                Semua PCL sudah submit laporan hari ini! 🎉
+                                                Semua PCL sudah submit laporan hari ini! ðŸŽ‰
                                             </td>
                                         </tr>
                                     ) : pclsBelumKirim.map((pcl, i) => (
@@ -576,7 +624,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                         </p>
                     </div>
                 )
-            ) : !selectedSurveiId ? (
+            ) : (!selectedSurveiId && role === 'admin') ? (
                 /* Placeholder sebelum pilih survei */
                 <div className="bg-white rounded-xl border border-gray-100 p-16 flex flex-col items-center justify-center text-center gap-3">
                     <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-2">
