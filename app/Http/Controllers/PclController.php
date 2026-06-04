@@ -124,7 +124,8 @@ class PclController extends Controller
         'tanggal_lahir'  => 'required|date',
         'asal_kecamatan' => 'required|string|max:255',
         'desa'           => 'required|string|max:255',
-        'sls'            => 'nullable|string|max:255',
+        'sls'            => 'required|array|min:1',
+        'sls.*'          => 'required|string|max:255',
         'sobat_id'       => 'nullable|string|max:255',
         'no_telp'        => 'nullable|string|max:20',
     ], [
@@ -143,23 +144,31 @@ class PclController extends Controller
         // Cek apakah user dengan email ini sudah ada
         $user = User::where('email', $request->email)->first();
 
-        if ($user) {
-            // Pastikan role-nya PCL
-            if ($user->role !== 'PCL') {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'email' => 'Email ini sudah digunakan oleh akun dengan role lain.',
-                ]);
-            }
+        if (!$user) {
+            $user = User::create([
+                'nama'     => $request->nama,
+                'email'    => $request->email,
+                'password' => Hash::make($generatedPassword),
+                'role'     => 'PCL',
+            ]);
+        }
 
-            // Jika user sudah ada, selalu buat PCL baru dengan data yang berbeda
-            // (Multiple PCL dengan email sama tapi data berbeda di kecamatan, desa, sls, sobat_id, no_telp)
+        if ($user->role !== 'PCL') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => 'Email ini sudah digunakan oleh akun dengan role lain.',
+            ]);
+        }
+
+        $selectedSls = array_unique($request->sls);
+
+        foreach ($selectedSls as $slsValue) {
             $pcl = Pcl::create([
                 'user_id'        => $user->id,
                 'nama_pcl'       => $request->nama,
                 'tanggal_lahir'  => $request->tanggal_lahir,
                 'asal_kecamatan' => $request->asal_kecamatan,
                 'desa'           => $request->desa,
-                'sls'            => $request->sls,
+                'sls'            => $slsValue,
                 'sobat_id'       => $request->sobat_id,
                 'no_telp'        => $request->no_telp,
             ]);
@@ -175,32 +184,8 @@ class PclController extends Controller
                 ]);
             }
 
-            // Tambahkan relasi survei & PML baru
             $pcl->surveis()->attach($request->survei_id);
             $pcl->pmls()->attach($request->pml_id);
-
-        } else {
-            // User belum ada, buat user baru
-            $user = User::create([
-                'nama'     => $request->nama,
-                'email'    => $request->email,
-                'password' => Hash::make($generatedPassword),
-                'role'     => 'PCL',
-            ]);
-
-            $pcl = Pcl::create([
-                'user_id'        => $user->id,
-                'nama_pcl'       => $request->nama,
-                'tanggal_lahir'  => $request->tanggal_lahir,
-                'asal_kecamatan' => $request->asal_kecamatan,
-                'desa'           => $request->desa,
-                'sls'            => $request->sls,
-                'sobat_id'       => $request->sobat_id,
-                'no_telp'        => $request->no_telp,
-            ]);
-
-            $pcl->pmls()->attach($request->pml_id);
-            $pcl->surveis()->attach($request->survei_id);
         }
     });
 
@@ -234,6 +219,11 @@ class PclController extends Controller
     public function update(Request $request, $id)
     {
         $pcl = Pcl::with('user')->findOrFail($id);
+
+        // Normalize sls input for edit flow: string when single row, array when multiple selection is accidentally sent.
+        if (is_array($request->sls)) {
+            $request->merge(['sls' => $request->sls[0] ?? null]);
+        }
 
         $request->validate([
             'nama'           => 'required|string|max:255',
@@ -301,7 +291,17 @@ class PclController extends Controller
         $pcl = Pcl::with('user')->findOrFail($id);
 
         DB::transaction(function () use ($pcl) {
-            $pcl->user->delete();
+            $user = $pcl->user;
+
+            // Lepas relasi pivot dulu, lalu hapus baris PCL saja.
+            $pcl->pmls()->detach();
+            $pcl->surveis()->detach();
+            $pcl->delete();
+
+            // Hapus user hanya jika tidak ada PCL lain yang terkait.
+            if ($user && Pcl::where('user_id', $user->id)->doesntExist()) {
+                $user->delete();
+            }
         });
 
         return redirect()->back()->with('success', 'Data PCL berhasil dihapus.');
@@ -451,7 +451,7 @@ class PclController extends Controller
         $request->validate([
             'rows'                      => 'required|array|min:1',
             'rows.*.nama_pcl'           => 'required|string|max:255',
-            'rows.*.email'              => 'required|email|distinct',
+            'rows.*.email'              => 'required|email',
             'rows.*.tanggal_lahir'      => 'required|date_format:Y-m-d',
             'rows.*.asal_kecamatan'     => 'required|string|max:255',
             'rows.*.desa'               => 'required|string|max:255',
@@ -465,7 +465,6 @@ class PclController extends Controller
             'rows.*.nama_pcl.required'         => 'Nama PCL wajib diisi.',
             'rows.*.email.required'            => 'Email wajib diisi.',
             'rows.*.email.email'               => 'Format email tidak valid.',
-            'rows.*.email.distinct'            => 'Terdapat email duplikat dalam file Excel.',
             'rows.*.tanggal_lahir.required'    => 'Tanggal lahir wajib diisi.',
             'rows.*.tanggal_lahir.date_format' => 'Format tanggal lahir harus YYYY-MM-DD.',
             'rows.*.asal_kecamatan.required'   => 'Asal kecamatan wajib diisi.',

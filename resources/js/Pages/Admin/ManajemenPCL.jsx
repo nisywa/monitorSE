@@ -13,6 +13,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const [selectedPmlName, setSelectedPmlName] = useState('');
     const [importLoading, setImportLoading] = useState(false);
     const [blastLoading, setBlastLoading] = useState(false);
+    const [detailGroup, setDetailGroup] = useState(null);
     
     // State untuk cascading dropdown
     const [kecamatanList, setKecamatanList] = useState([]);
@@ -30,7 +31,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         tanggal_lahir: '',
         asal_kecamatan: '',
         desa: '',
-        sls: '',
+        sls: [],
         sobat_id: '',
         no_telp: '',
     });
@@ -41,6 +42,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         clearErrors();
         setDesaList([]);
         setSlsList([]);
+        setData('sls', []);
         if (selectedSurveiId) {
             setData('survei_id', selectedSurveiId);
         }
@@ -48,32 +50,68 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     };
 
     const openEdit = async (pcl) => {
-        setEditData(pcl);
+        clearErrors();
+
         try {
-            const response = await fetch(`/manajemen-pcl/${pcl.id}`);
-            const pclData = await response.json();
-            setData({
-                nama: pclData.nama_pcl,
-                email: pclData.email,
-                pml_id: pclData.pml_id || '',
-                survei_id: pclData.survei_id || '',
-                tanggal_lahir: pclData.tanggal_lahir,
-                asal_kecamatan: pclData.asal_kecamatan,
-                desa: pclData.desa,
-                sls: pclData.sls,
-                sobat_id: pclData.sobat_id,
-                no_telp: pclData.no_telp,
-            });
-            clearErrors();
-            
-            // Load desa jika ada kecamatan yang dipilih saat edit
-            if (pclData.asal_kecamatan) {
-                const kecSelected = kecamatanList.find(k => k.nama === pclData.asal_kecamatan);
+            const kecList = kecamatanList.length === 0 ? await fetchKecamatan() : kecamatanList;
+            const isGroup = pcl && Array.isArray(pcl.entries);
+            const row = isGroup ? pcl.entries[0] : pcl;
+            const pclId = row?.id || row?.pcl_id;
+            const selectedKecamatan = row?.asal_kecamatan || row?.kecamatan || '';
+            const selectedDesa = row?.desa || '';
+
+            let pclData = null;
+            if (isGroup) {
+                pclData = {
+                    ...row,
+                    nama_pcl: row?.nama_pcl ?? row?.nama_PCL,
+                };
+            } else if (row && (row.nama_pcl || row.nama_PCL)) {
+                pclData = {
+                    ...row,
+                    nama_pcl: row.nama_pcl ?? row.nama_PCL,
+                };
+            } else if (pclId) {
+                const response = await fetch(`/manajemen-pcl/${pclId}`);
+                pclData = await response.json();
+            } else {
+                throw new Error('PCL id tidak ditemukan untuk edit');
+            }
+
+            const slsValues = isGroup
+                ? Array.from(new Set(pcl.entries
+                    .filter(entry => (entry.asal_kecamatan || entry.kecamatan) === selectedKecamatan && entry.desa === selectedDesa)
+                    .map(entry => entry.sls)
+                    .filter(Boolean)))
+                : pclData.sls
+                    ? Array.isArray(pclData.sls)
+                        ? pclData.sls
+                        : [pclData.sls]
+                    : [];
+
+            const editRowData = {
+                nama: pclData.nama_pcl || pclData.nama_PCL || '',
+                email: pclData.email || '',
+                pml_id: pclData.pml_id || pclData.pmlId || '',
+                survei_id: pclData.survei_id || pclData.surveiId || selectedSurveiId || '',
+                tanggal_lahir: pclData.tanggal_lahir || pclData.tgl_lahir || '',
+                asal_kecamatan: selectedKecamatan,
+                desa: selectedDesa,
+                sls: slsValues,
+                sobat_id: pclData.sobat_id || pclData.sobatID || '',
+                no_telp: pclData.no_telp || pclData.no_telepon || pclData.noTelp || '',
+            };
+
+            setEditData({ id: pclId, ...editRowData });
+            setData(editRowData);
+
+            if (selectedKecamatan) {
+                const kecSelected = kecList.find(k => k.nama === selectedKecamatan);
                 if (kecSelected) {
-                    fetchDesaByKecamatan(kecSelected.id, pclData.desa, pclData.sls);
+                    await fetchDesaByKecamatan(kecSelected.id, selectedDesa, slsValues);
                 }
             }
-            
+
             setShowModal(true);
         } catch (error) {
             console.error('Error loading PCL data:', error);
@@ -98,7 +136,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
             setDesaList([]);
             setSlsList([]);
             setData('desa', '');
-            setData('sls', '');
+            setData('sls', []);
         }
     }, [data.asal_kecamatan, kecamatanList]);
 
@@ -111,7 +149,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
             }
         } else {
             setSlsList([]);
-            setData('sls', '');
+            setData('sls', []);
         }
     }, [data.desa, desaList]);
 
@@ -119,10 +157,13 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         try {
             setLoadingKecamatan(true);
             const response = await axios.get('/api/wilayah-kerja/kecamatan-list');
-            setKecamatanList(response.data.data || []);
+            const list = response.data.data || [];
+            setKecamatanList(list);
+            return list;
         } catch (error) {
             console.error('Error fetching kecamatan:', error);
             alert('Gagal memuat data kecamatan');
+            return [];
         } finally {
             setLoadingKecamatan(false);
         }
@@ -139,7 +180,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                 setData('desa', selectedDesaNama);
                 const desaSelected = response.data.data?.find(d => d.nama === selectedDesaNama);
                 if (desaSelected && selectedSlsNama) {
-                    fetchSlsByDesa(desaSelected.id, selectedSlsNama);
+                    await fetchSlsByDesa(desaSelected.id, selectedSlsNama);
                 }
             }
         } catch (error) {
@@ -158,7 +199,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
             
             // Set selected sls if provided (during edit)
             if (selectedSlsNama) {
-                setData('sls', selectedSlsNama);
+                setData('sls', Array.isArray(selectedSlsNama) ? selectedSlsNama : [selectedSlsNama]);
             }
         } catch (error) {
             console.error('Error fetching sls:', error);
@@ -184,6 +225,22 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
     const handleDelete = (id) => {
         if (confirm('Yakin ingin menghapus data PCL ini?')) {
             router.delete(`/manajemen-pcl/${id}`);
+        }
+    };
+
+    const handleDeleteAndClose = (id) => {
+        if (confirm('Yakin ingin menghapus data PCL ini?')) {
+            setDetailGroup(null);
+            router.delete(`/manajemen-pcl/${id}`);
+        }
+    };
+
+    const handleToggleSls = (value) => {
+        const current = Array.isArray(data.sls) ? data.sls : [];
+        if (current.includes(value)) {
+            setData('sls', current.filter(item => item !== value));
+        } else {
+            setData('sls', [...current, value]);
         }
     };
 
@@ -283,7 +340,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                         } else tanggal = '';
                     }
 
-                    const kec = (row['Asal Kecamatan'] ?? '').toString().trim();
+                    const kec = ((row['Asal Kecamatan'] ?? row['Kecamatan']) ?? '').toString().trim();
                     const desa = (row['Desa'] ?? '').toString().trim();
                     const sls = (row['SLS'] ?? '').toString().trim();
                     const sobat = (row['Sobat ID'] ?? '').toString().trim();
@@ -319,29 +376,29 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
 
                 // Send to backend
                 const token = document.querySelector('meta[name="csrf-token"]')?.content || window.csrf_token || document.querySelector('input[name="_token"]')?.value;
-                const res = await fetch('/manajemen-pcl/import', {
-                    method: 'POST',
-                    credentials: 'same-origin',
+                if (!token) {
+                    alert('CSRF token tidak ditemukan. Silakan muat ulang halaman dan coba lagi.');
+                    setImportLoading(false);
+                    e.target.value = '';
+                    return;
+                }
+
+                const res = await axios.post('/manajemen-pcl/import', {
+                    rows: payload,
+                    survei_id: selectedSurveiId,
+                }, {
                     headers: {
-                        'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': token,
                         'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ rows: payload, survei_id: selectedSurveiId }),
+                    withCredentials: true,
                 });
 
-                const contentType = res.headers.get('content-type') || '';
-                let result;
-                if (contentType.includes('application/json')) {
-                    result = await res.json();
-                } else {
-                    const text = await res.text();
-                    throw new Error('Server returned non-JSON response: ' + text.slice(0, 300));
-                }
+                const result = res.data;
 
                 setImportLoading(false);
                 e.target.value = '';
-                if (res.ok && result.success) {
+                if (result.success) {
                     alert('✓ ' + result.message);
                     setTimeout(() => window.location.reload(), 800);
                 } else {
@@ -385,6 +442,36 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
         return matchesSearch && matchesPml;
     });
 
+    const groupedFiltered = Object.values(filtered.reduce((groups, item) => {
+        const key = item.nama_PCL?.trim().toLowerCase() || item.pcl_id || item.id;
+        if (!groups[key]) {
+            groups[key] = {
+                name: item.nama_PCL,
+                emails: new Set(),
+                pmls: new Set(),
+                kecamatans: new Set(),
+                desas: new Set(),
+                noTelps: new Set(),
+                entries: [],
+            };
+        }
+        const group = groups[key];
+        group.emails.add(item.email || '-');
+        group.pmls.add(item.nama_pml || '-');
+        group.kecamatans.add(item.asal_kecamatan || '-');
+        group.desas.add(item.desa || '-');
+        group.noTelps.add(item.no_telp || '-');
+        group.entries.push(item);
+        return groups;
+    }, {})).map(group => ({
+        ...group,
+        email: Array.from(group.emails).join(', '),
+        pmlLabel: Array.from(group.pmls).filter(v => v && v !== '-').join(', ') || '-',
+        kecamatanLabel: Array.from(group.kecamatans).filter(v => v && v !== '-').join(', '),
+        desaLabel: Array.from(group.desas).filter(v => v && v !== '-').join(', '),
+        noTelpLabel: Array.from(group.noTelps).filter(v => v && v !== '-').join(', '),
+    }));
+
     const pmlOptions = selectedSurveiId
         ? pmls?.filter(pml => pml.survei_ids?.includes(parseInt(selectedSurveiId)))
              .map(pml => pml.nama_PML)
@@ -406,7 +493,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                     <h2 className="text-lg font-semibold text-gray-800">Daftar PCL</h2>
                     <p className="text-sm text-gray-500 mt-0.5">
                         {selectedSurveiId
-                            ? `${filtered.length} PCL terdaftar di ${selectedSurveiLabel}`
+                            ? `${groupedFiltered.length} PCL terdaftar di ${selectedSurveiLabel}`
                             : 'Pilih survei untuk melihat data PCL'}
                     </p>
                 </div>
@@ -556,65 +643,49 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">PML</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Kecamatan</th>
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Desa</th>
-                                        <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
+                                        {/* <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th> */}
                                         {/* <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sobat ID</th> */}
                                         <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No Telp</th>
                                         <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {filtered.length === 0 ? (
+                                    {groupedFiltered.length === 0 ? (
                                         <tr>
-                                            <td colSpan={10} className="text-center py-12 text-gray-400 text-sm">
+                                            <td colSpan={8} className="text-center py-12 text-gray-400 text-sm">
                                                 {search
                                                     ? 'Tidak ada hasil pencarian.'
                                                     : `Belum ada PCL terdaftar di survei ${selectedSurveiLabel}.`}
                                             </td>
                                         </tr>
-                                    ) : filtered.map((pcl, i) => (
-                                        <tr key={pcl.id} className="hover:bg-gray-50 transition-colors">
+                                    ) : groupedFiltered.map((group, i) => (
+                                        <tr key={`${group.name}-${i}`} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-5 py-3.5 text-gray-400">{i + 1}</td>
                                             <td className="px-5 py-3.5">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-semibold shrink-0">
-                                                        {pcl.nama_PCL.charAt(0).toUpperCase()}
+                                                        {group.name.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <p className="font-medium text-gray-800">{pcl.nama_PCL}</p>
-                                                        <p className="text-xs text-gray-400">{pcl.tanggal_lahir_formatted}</p>
+                                                        <p className="font-medium text-gray-800">{group.name}</p>
+                                                        <p className="text-xs text-gray-400">{group.entries.length} lokasi</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-3.5 text-gray-600">{pcl.email}</td>
-                                            <td className="px-5 py-3.5">
-                                                {pcl.nama_pml && pcl.nama_pml !== '-' ? (
-                                                    <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                                                        {pcl.nama_pml}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-400 text-xs">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-5 py-3.5 text-gray-600">{pcl.asal_kecamatan}</td>
-                                            <td className="px-5 py-3.5 text-gray-600">{pcl.desa}</td>
-                                            <td className="px-5 py-3.5 text-gray-600">{pcl.sls || '-'}</td>
-                                            {/* <td className="px-5 py-3.5 text-gray-600">{pcl.sobat_id || '-'}</td> */}
-                                            <td className="px-5 py-3.5 text-gray-600">{pcl.no_telp || '-'}</td>
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => openEdit({ id: pcl.pcl_id })}
-                                                        className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
-                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
+                                            <td className="px-5 py-3.5 text-gray-600">{group.email}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{group.pmlLabel}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{group.kecamatanLabel}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{group.desaLabel}</td>
+                                            <td className="px-5 py-3.5 text-gray-600">{group.noTelpLabel || '-'}</td>
+                                            <td className="px-5 py-3.5 text-right">
+                                                <div className="inline-flex items-center gap-2 justify-end">
+                                                    <button onClick={() => openEdit(group)}
+                                                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
                                                         Edit
                                                     </button>
-                                                    <button onClick={() => handleDelete(pcl.pcl_id)}
-                                                        className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">
-                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                        Hapus
+                                                    <button onClick={() => setDetailGroup(group)}
+                                                        className="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
+                                                        Detail
                                                     </button>
                                                 </div>
                                             </td>
@@ -626,6 +697,66 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                     </div>
                 </>
             )}
+
+            {/* Modal Detail PCL */}
+            <Modal show={!!detailGroup} onClose={() => setDetailGroup(null)}
+                title={detailGroup ? `Detail PCL: ${detailGroup.name}` : ''} maxWidth="2xl">
+                {detailGroup && (
+                    <div className="space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                                <p className="text-xs uppercase tracking-wide text-gray-500">Nama PCL</p>
+                                <p className="mt-2 font-semibold text-gray-800">{detailGroup.name}</p>
+                            </div>
+                            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                                <p className="text-xs uppercase tracking-wide text-gray-500">Email</p>
+                                <p className="mt-2 text-gray-800">{detailGroup.email}</p>
+                            </div>
+                            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                                <p className="text-xs uppercase tracking-wide text-gray-500">Total Lokasi</p>
+                                <p className="mt-2 text-gray-800">{detailGroup.entries.length}</p>
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto bg-white rounded-xl border border-gray-100">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">No</th>
+                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Desa</th>
+                                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">SLS</th>
+                                        <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {detailGroup.entries.map((entry, idx) => (
+                                        <tr key={`${entry.pcl_id}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-4 py-3 text-gray-600">{idx + 1}</td>
+                                            <td className="px-4 py-3 text-gray-600">{entry.desa}</td>
+                                            <td className="px-4 py-3 text-gray-600">{entry.sls || '-'}</td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="inline-flex items-center gap-2 justify-end">
+                                                    <button type="button" onClick={() => handleDeleteAndClose(entry.pcl_id)}
+                                                        className="text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                            <button type="button" onClick={() => setDetailGroup(null)}
+                                className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             {/* Modal Tambah / Edit */}
             <Modal show={showModal} onClose={() => setShowModal(false)}
@@ -666,7 +797,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                     onChange={e => {
                                         setData('asal_kecamatan', e.target.value);
                                         setData('desa', '');
-                                        setData('sls', '');
+                                        setData('sls', []);
                                     }}
                                     disabled={loadingKecamatan}
                                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.asal_kecamatan ? 'border-red-300' : 'border-gray-200'} ${loadingKecamatan ? 'bg-gray-100' : ''}`}
@@ -685,7 +816,7 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
                                     value={data.desa}
                                     onChange={e => {
                                         setData('desa', e.target.value);
-                                        setData('sls', '');
+                                        setData('sls', []);
                                     }}
                                     disabled={loadingDesa || !data.asal_kecamatan}
                                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa ? 'border-red-300' : 'border-gray-200'} ${loadingDesa ? 'bg-gray-100' : ''}`}
@@ -700,17 +831,27 @@ export default function ManajemenPCL({ pcls, pmls, surveis }) {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">SLS</label>
-                                <select
-                                    value={data.sls}
-                                    onChange={e => setData('sls', e.target.value)}
-                                    disabled={loadingSls || !data.desa}
-                                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls ? 'border-red-300' : 'border-gray-200'} ${loadingSls ? 'bg-gray-100' : ''}`}
-                                >
-                                    <option value="">Pilih SLS</option>
-                                    {slsList.map(s => (
-                                        <option key={s.id} value={s.nomor_sls}>{s.nomor_sls}</option>
-                                    ))}
-                                </select>
+                                <div className={`grid gap-2 max-h-48 overflow-y-auto rounded-lg border ${errors.sls ? 'border-red-300' : 'border-gray-200'} p-3 ${loadingSls ? 'bg-gray-100' : 'bg-white'}`}>
+                                    {slsList.length === 0 ? (
+                                        <p className="text-sm text-gray-400">Pilih desa untuk memuat daftar SLS.</p>
+                                    ) : slsList.map(s => {
+                                        const value = s.nomor_sls ?? s.nama ?? '';
+                                        const checked = Array.isArray(data.sls) && data.sls.includes(value);
+                                        return (
+                                            <label key={s.id} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                                <input
+                                                    type="checkbox"
+                                                    value={value}
+                                                    checked={checked}
+                                                    disabled={loadingSls || !data.desa}
+                                                    onChange={() => handleToggleSls(value)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                />
+                                                <span>{value}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                                 {errors.sls && <p className="text-red-500 text-xs mt-1">{errors.sls}</p>}
                             </div>
 
