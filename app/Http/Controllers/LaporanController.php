@@ -28,6 +28,9 @@ class LaporanController extends Controller
         $selectedTab = $request->query('tab');
         $selectedDate = $request->query('tanggal');
         $user  = Auth::user();
+        $pclAssignmentContext = $user->role === 'PCL'
+            ? $this->getPclAssignmentContext($user)
+            : null;
         $query = Laporan::with(['survei', 'pcl', 'pml', 'kecamatan', 'desa', 'sls']);
 
         if ($user->role === 'PML') {
@@ -36,9 +39,11 @@ class LaporanController extends Controller
                 $query->where('pml_id', $pml->id);
             }
         } elseif ($user->role === 'PCL') {
-            $pcl = $user->pcl;
-            if ($pcl && $pcl->id) {
-                $query->where('pcl_id', $pcl->id);
+            $pclIds = $pclAssignmentContext['pcl_ids'] ?? [];
+            if (!empty($pclIds)) {
+                $query->whereIn('pcl_id', $pclIds);
+            } else {
+                $query->whereRaw('1 = 0');
             }
         }
 
@@ -72,33 +77,12 @@ class LaporanController extends Controller
         $surveis = [];
         $pmlBySurvei = [];
         $pclsBySurvei = [];
+        $wilayahBySurvei = [];
 
         if ($user->role === 'PCL') {
-            $pcl     = $user->pcl;
-            // Ambil survei yang terhubung dengan PCL ini melalui relasi many-to-many
-            if ($pcl) {
-                $surveis = $pcl->surveis()
-                    ->select('survei.id', 'survei.nama_survei')
-                    ->get();
-
-                // Bangun mapping survei -> PML berdasarkan relasi PCL -> PML -> Survei
-                $pmlBySurvei = $pcl->pmls()->with('surveis')->get()
-                    ->flatMap(function ($pml) {
-                        return $pml->surveis->map(fn ($survei) => [
-                            'survei_id' => $survei->id,
-                            'pml_id'    => $pml->id,
-                            'nama_pml'  => $pml->nama_pml,
-                        ]);
-                    })
-                    ->unique('survei_id')
-                    ->mapWithKeys(fn ($item) => [$item['survei_id'] => [
-                        'id'       => $item['pml_id'],
-                        'nama_pml' => $item['nama_pml'],
-                    ]])->toArray();
-            } else {
-                $surveis = collect();
-                $pmlBySurvei = [];
-            }
+            $surveis = collect($pclAssignmentContext['surveis'] ?? []);
+            $pmlBySurvei = $pclAssignmentContext['pml_by_survei'] ?? [];
+            $wilayahBySurvei = $pclAssignmentContext['wilayah_by_survei'] ?? [];
         } elseif ($user->role === 'PML') {
             $pml = $user->pml;
 
@@ -148,7 +132,8 @@ class LaporanController extends Controller
         }
 
         if (!$selectedSurvei && in_array($user->role, ['PCL', 'PML']) && collect($surveis)->isNotEmpty()) {
-            $selectedSurvei = $surveis->first()->id;
+            $firstSurvei = collect($surveis)->first();
+            $selectedSurvei = is_array($firstSurvei) ? $firstSurvei['id'] : $firstSurvei->id;
         }
 
         // Data PCL yang belum submit laporan hari ini (untuk PML)
@@ -199,6 +184,7 @@ class LaporanController extends Controller
             'surveis'         => $surveis,
             'pmlBySurvei'     => $pmlBySurvei,
             'pclsBySurvei'    => $pclsBySurvei,
+            'wilayahBySurvei'  => $wilayahBySurvei,
             'pclsBelumKirim'  => $pclsBelumKirim,
             'selectedSurvei'  => $selectedSurvei ? (int) $selectedSurvei : null,
             'selectedDate'    => $selectedDate ?? null,
@@ -277,7 +263,7 @@ class LaporanController extends Controller
         $this->authorize('create', Laporan::class);
 
         $user = Auth::user();
-        $pcl  = $user->pcl;
+        $assignmentContext = $this->getPclAssignmentContext($user);
 
         $request->validate([
             'survei_id'    => 'required|exists:survei,id',
@@ -308,7 +294,6 @@ class LaporanController extends Controller
             'data_submit.integer'    => 'Data submit harus berupa angka.',
         ]);
 
-        $survei = Survei::findOrFail($request->survei_id);
         $kecamatan = Kecamatan::findOrFail($request->kecamatan_id);
         $desa = Desa::findOrFail($request->desa_id);
         $sls = Sls::findOrFail($request->sls_id);
@@ -321,24 +306,27 @@ class LaporanController extends Controller
             return redirect()->back()->withErrors(['sls_id' => 'SLS tidak valid untuk desa yang dipilih.']);
         }
 
-        if ($user->role === 'PCL' && $pcl) {
-            $validPml = $pcl->pmls()
-                ->where('pml.id', $request->pml_id)
-                ->whereHas('surveis', fn ($query) => $query->where('survei.id', $request->survei_id))
-                ->exists();
+        $assignment = collect($assignmentContext['assignments'] ?? [])->first(function ($assignment) use ($request) {
+            return (int) $assignment['survei_id'] === (int) $request->survei_id
+                && (int) $assignment['pml_id'] === (int) $request->pml_id
+                && (int) $assignment['kecamatan_id'] === (int) $request->kecamatan_id
+                && (int) $assignment['desa_id'] === (int) $request->desa_id
+                && (int) $assignment['sls_id'] === (int) $request->sls_id;
+        });
 
-            if (!$validPml) {
-                return redirect()->back()->with('error', 'PML tidak valid untuk survei yang dipilih.');
-            }
+        if (!$assignment) {
+            return redirect()->back()->withErrors([
+                'sls_id' => 'Survei, PML, atau wilayah yang dipilih tidak sesuai dengan penugasan PCL.',
+            ])->withInput();
         }
 
         Laporan::create([
-            'survei_id'      => $request->survei_id,
-            'pcl_id'         => $pcl?->id,
-            'pml_id'         => $request->pml_id,
-            'kecamatan_id'   => $request->kecamatan_id,
-            'desa_id'        => $request->desa_id,
-            'sls_id'         => $request->sls_id,
+            'survei_id'      => $assignment['survei_id'],
+            'pcl_id'         => $assignment['pcl_id'],
+            'pml_id'         => $assignment['pml_id'],
+            'kecamatan_id'   => $assignment['kecamatan_id'],
+            'desa_id'        => $assignment['desa_id'],
+            'sls_id'         => $assignment['sls_id'],
             'nama_kecamatan' => $kecamatan->nama,
             'nama_desa'      => $desa->nama,
             'nomor_sls'      => $sls->nomor_sls,
@@ -436,6 +424,143 @@ class LaporanController extends Controller
         return redirect()->back()->with('success', 'Laporan berhasil diperbarui.');
     }
 
+    private function getPclAssignmentContext($user): array
+    {
+        $context = [
+            'pcl_ids' => [],
+            'surveis' => [],
+            'pml_by_survei' => [],
+            'wilayah_by_survei' => [],
+            'assignments' => [],
+        ];
+
+        if (!$user) {
+            return $context;
+        }
+
+        $pclRows = Pcl::with(['surveis:id,nama_survei', 'pmls.surveis:id'])
+            ->where('user_id', $user->id)
+            ->get();
+
+        $context['pcl_ids'] = $pclRows->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if ($pclRows->isEmpty()) {
+            return $context;
+        }
+
+        $kecamatanByName = Kecamatan::select('id', 'nama')
+            ->get()
+            ->keyBy(fn ($kecamatan) => $this->normalizeAssignmentValue($kecamatan->nama));
+
+        $desaByKey = Desa::select('id', 'kecamatan_id', 'nama')
+            ->get()
+            ->keyBy(fn ($desa) => $desa->kecamatan_id . '|' . $this->normalizeAssignmentValue($desa->nama));
+
+        $slsByKey = Sls::select('id', 'desa_id', 'nomor_sls')
+            ->get()
+            ->keyBy(fn ($sls) => $sls->desa_id . '|' . $this->normalizeAssignmentValue($sls->nomor_sls));
+
+        $surveiMap = [];
+        $wilayahBySurvei = [];
+        $assignmentMap = [];
+
+        foreach ($pclRows as $pcl) {
+            $kecamatan = $kecamatanByName->get($this->normalizeAssignmentValue($pcl->asal_kecamatan));
+            $desa = $kecamatan
+                ? $desaByKey->get($kecamatan->id . '|' . $this->normalizeAssignmentValue($pcl->desa))
+                : null;
+            $sls = $desa
+                ? $slsByKey->get($desa->id . '|' . $this->normalizeAssignmentValue($pcl->sls))
+                : null;
+
+            foreach ($pcl->surveis as $survei) {
+                $surveiId = (int) $survei->id;
+                $surveiMap[$surveiId] = [
+                    'id' => $surveiId,
+                    'nama_survei' => $survei->nama_survei,
+                ];
+
+                $validPmls = $pcl->pmls
+                    ->filter(fn ($pml) => $pml->surveis->contains(fn ($pmlSurvei) => (int) $pmlSurvei->id === $surveiId))
+                    ->sortBy('id')
+                    ->values();
+                $pml = $validPmls->first();
+
+                if ($pml && !isset($context['pml_by_survei'][$surveiId])) {
+                    $context['pml_by_survei'][$surveiId] = [
+                        'id' => (int) $pml->id,
+                        'nama_pml' => $pml->nama_pml,
+                    ];
+                }
+
+                if (!$pml || (int) ($context['pml_by_survei'][$surveiId]['id'] ?? 0) !== (int) $pml->id) {
+                    continue;
+                }
+
+                if (!$kecamatan || !$desa || !$sls) {
+                    continue;
+                }
+
+                $wilayahBySurvei[$surveiId]['kecamatan'][$kecamatan->id] = [
+                    'id' => (int) $kecamatan->id,
+                    'nama' => $kecamatan->nama,
+                ];
+                $wilayahBySurvei[$surveiId]['desa'][$desa->id] = [
+                    'id' => (int) $desa->id,
+                    'kecamatan_id' => (int) $kecamatan->id,
+                    'nama' => $desa->nama,
+                ];
+                $wilayahBySurvei[$surveiId]['sls'][$sls->id] = [
+                    'id' => (int) $sls->id,
+                    'desa_id' => (int) $desa->id,
+                    'nomor_sls' => $sls->nomor_sls,
+                ];
+
+                $assignmentKey = implode('|', [
+                    $surveiId,
+                    $pml->id,
+                    $kecamatan->id,
+                    $desa->id,
+                    $sls->id,
+                ]);
+
+                $assignmentMap[$assignmentKey] ??= [
+                    'survei_id' => $surveiId,
+                    'pcl_id' => (int) $pcl->id,
+                    'pml_id' => (int) $pml->id,
+                    'kecamatan_id' => (int) $kecamatan->id,
+                    'desa_id' => (int) $desa->id,
+                    'sls_id' => (int) $sls->id,
+                ];
+            }
+        }
+
+        $context['surveis'] = collect($surveiMap)
+            ->sortBy('nama_survei')
+            ->values()
+            ->all();
+
+        foreach ($wilayahBySurvei as $surveiId => $wilayah) {
+            $context['wilayah_by_survei'][$surveiId] = [
+                'kecamatan' => collect($wilayah['kecamatan'] ?? [])->sortBy('nama')->values()->all(),
+                'desa' => collect($wilayah['desa'] ?? [])->sortBy('nama')->values()->all(),
+                'sls' => collect($wilayah['sls'] ?? [])->sortBy('nomor_sls')->values()->all(),
+            ];
+        }
+
+        $context['assignments'] = array_values($assignmentMap);
+
+        return $context;
+    }
+
+    private function normalizeAssignmentValue($value): string
+    {
+        return strtolower(trim((string) $value));
+    }
+
     /**
      * Helper: Tentukan status survei berdasarkan tanggal.
      */
@@ -452,4 +577,3 @@ class LaporanController extends Controller
         return 'Berlangsung';
     }
 }
-

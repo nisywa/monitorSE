@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Head, useForm, router, usePage } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import Modal from '@/Components/Modal';
 
-export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySurvei, pclsBelumKirim, role, selectedSurvei, selectedDate, initialTab }) {
+export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySurvei, wilayahBySurvei = {}, pclsBelumKirim, role, selectedSurvei, selectedDate, initialTab }) {
     const [activeTab, setActiveTab] = useState(initialTab ?? 'laporan');
     const [showModal, setShowModal] = useState(false);
     const [editData, setEditData] = useState(null);
@@ -15,6 +15,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [kecamatanList, setKecamatanList] = useState([]);
+    const [formKecamatanList, setFormKecamatanList] = useState([]);
     const [desaList, setDesaList] = useState([]);
     const [slsList, setSlsList] = useState([]);
     const [filterKecamatanId, setFilterKecamatanId] = useState('');
@@ -52,51 +53,14 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         }
     }, [selectedSurvei, surveis, role]);
 
-    const { auth } = usePage().props;
-
     const openAdd = () => {
         setEditData(null);
         reset();
         clearErrors();
+        setFormKecamatanList([]);
         setDesaList([]);
         setSlsList([]);
         setShowModal(true);
-        if (role === 'PCL' && auth?.user?.pcl) {
-            prefillFromPcl(auth.user.pcl);
-        }
-    };
-
-    const prefillFromPcl = async (pcl) => {
-        try {
-            if (!pcl) return;
-            // fetch kecamatan list directly to ensure we have up-to-date data
-            const kecResp = await axios.get('/api/wilayah-kerja/kecamatan-list');
-            const kecData = kecResp.data.data || [];
-            setKecamatanList(kecData);
-
-            const kec = kecData.find(k => k.nama === (pcl.asal_kecamatan || ''));
-            if (!kec) return;
-
-            setData('kecamatan_id', String(kec.id));
-
-            const desaResp = await axios.get(`/api/wilayah-kerja/desa/${kec.id}`);
-            const desaData = desaResp.data.data || [];
-            setDesaList(desaData);
-            const desa = desaData.find(d => d.nama === (pcl.desa || ''));
-            if (!desa) return;
-
-            setData('desa_id', String(desa.id));
-
-            const slsResp = await axios.get(`/api/wilayah-kerja/sls/${desa.id}`);
-            const slsData = slsResp.data.data || [];
-            setSlsList(slsData);
-            const slsMatch = slsData.find(s => String(s.nomor_sls) === String(pcl.sls) || s.nama === pcl.sls);
-            if (slsMatch) {
-                setData('sls_id', String(slsMatch.id));
-            }
-        } catch (error) {
-            console.error('Error prefillFromPcl:', error);
-        }
     };
 
     const openEdit = (laporan) => {
@@ -209,7 +173,31 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
             Array.from(new Map(laporanBySurvei.map(l => [l.pcl_id, { id: l.pcl_id, nama_pcl: l.nama_pcl }])).values()))
         : [];
 
+    const getWilayahForSurvei = (surveiId) => {
+        if (!surveiId) {
+            return { kecamatan: [], desa: [], sls: [] };
+        }
+
+        return wilayahBySurvei?.[surveiId] ?? { kecamatan: [], desa: [], sls: [] };
+    };
+
+    const filterPclDesaByKecamatan = (surveiId, kecamatanId) => {
+        const wilayah = getWilayahForSurvei(surveiId);
+        return (wilayah.desa || []).filter(d => String(d.kecamatan_id) === String(kecamatanId));
+    };
+
+    const filterPclSlsByDesa = (surveiId, desaId) => {
+        const wilayah = getWilayahForSurvei(surveiId);
+        return (wilayah.sls || []).filter(s => String(s.desa_id) === String(desaId));
+    };
+
     const fetchKecamatanList = async () => {
+        if (role === 'PCL') {
+            const wilayah = getWilayahForSurvei(selectedSurveiId);
+            setKecamatanList(wilayah.kecamatan || []);
+            return;
+        }
+
         setLoadingKecamatan(true);
         try {
             const response = await axios.get('/api/wilayah-kerja/kecamatan-list');
@@ -223,6 +211,22 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     };
 
     const fetchDesaByKecamatan = async (kecamatanId, selectedDesaId = null, selectedSlsId = null) => {
+        if (role === 'PCL') {
+            const desaData = filterPclDesaByKecamatan(data.survei_id, kecamatanId);
+            setDesaList(desaData);
+            if (selectedDesaId) {
+                setData('desa_id', String(selectedDesaId));
+                if (selectedSlsId) {
+                    fetchSlsByDesa(selectedDesaId, selectedSlsId);
+                }
+            } else {
+                setData('desa_id', '');
+                setData('sls_id', '');
+                setSlsList([]);
+            }
+            return;
+        }
+
         setLoadingDesa(true);
         try {
             const response = await axios.get(`/api/wilayah-kerja/desa/${kecamatanId}`);
@@ -250,6 +254,13 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     };
 
     const fetchSlsByDesa = async (desaId, selectedSlsId = null) => {
+        if (role === 'PCL') {
+            const slsData = filterPclSlsByDesa(data.survei_id, desaId);
+            setSlsList(slsData);
+            setData('sls_id', selectedSlsId ? String(selectedSlsId) : '');
+            return;
+        }
+
         setLoadingSls(true);
         try {
             const response = await axios.get(`/api/wilayah-kerja/sls/${desaId}`);
@@ -270,6 +281,11 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     };
 
     const fetchFilterDesaByKecamatan = async (kecamatanId) => {
+        if (role === 'PCL') {
+            setFilterDesaList(filterPclDesaByKecamatan(selectedSurveiId, kecamatanId));
+            return;
+        }
+
         setLoadingFilterDesa(true);
         try {
             const response = await axios.get(`/api/wilayah-kerja/desa/${kecamatanId}`);
@@ -283,6 +299,11 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
     };
 
     const fetchFilterSlsByDesa = async (desaId) => {
+        if (role === 'PCL') {
+            setFilterSlsList(filterPclSlsByDesa(selectedSurveiId, desaId));
+            return;
+        }
+
         setLoadingFilterSls(true);
         try {
             const response = await axios.get(`/api/wilayah-kerja/sls/${desaId}`);
@@ -297,7 +318,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
 
     useEffect(() => {
         fetchKecamatanList();
-    }, []);
+    }, [role, selectedSurveiId]);
 
     useEffect(() => {
         if (filterKecamatanId) {
@@ -345,14 +366,33 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
 
     useEffect(() => {
         if (data.survei_id) {
-            setData('pml_id', selectedPml?.id ?? '');
+            if (!editData) {
+                setData('pml_id', selectedPml?.id ?? '');
+            }
+
+            if (role === 'PCL') {
+                const wilayah = getWilayahForSurvei(data.survei_id);
+                setFormKecamatanList(wilayah.kecamatan || []);
+            }
         } else {
-            setData('pml_id', '');
+            if (!editData) {
+                setData('pml_id', '');
+            }
+            if (role === 'PCL') {
+                setFormKecamatanList([]);
+                setDesaList([]);
+                setSlsList([]);
+            }
         }
-    }, [data.survei_id, selectedPml]);
+    }, [data.survei_id, selectedPml, role, editData]);
 
     useEffect(() => {
         setFilterPclId('');
+        setFilterKecamatanId('');
+        setFilterDesaId('');
+        setFilterSlsId('');
+        setFilterDesaList([]);
+        setFilterSlsList([]);
     }, [selectedSurveiId]);
 
     return (
@@ -424,7 +464,15 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                 </label>
                 <select
                     value={selectedSurveiId}
-                    onChange={e => { setSelectedSurveiId(e.target.value); setSearch(''); setStartDate(''); setEndDate(''); }}
+                    onChange={e => {
+                        setSelectedSurveiId(e.target.value);
+                        setSearch('');
+                        setStartDate('');
+                        setEndDate('');
+                        setFilterKecamatanId('');
+                        setFilterDesaId('');
+                        setFilterSlsId('');
+                    }}
                     className="w-full md:w-xs border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="">-- Pilih survei --</option>
@@ -850,7 +898,18 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                     {!editData && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Survei</label>
-                            <select value={data.survei_id} onChange={e => setData('survei_id', e.target.value)}
+                            <select value={data.survei_id} onChange={e => {
+                                    setData({
+                                        ...data,
+                                        survei_id: e.target.value,
+                                        pml_id: '',
+                                        kecamatan_id: '',
+                                        desa_id: '',
+                                        sls_id: '',
+                                    });
+                                    setDesaList([]);
+                                    setSlsList([]);
+                                }}
                                 disabled={isReadOnlyMode}
                                 className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.survei_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}>
                                 <option value="">Pilih Survei</option>
@@ -867,7 +926,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                             <label className="block text-sm font-medium text-gray-700 mb-1">PML</label>
                             <input type="text" value={selectedPml ? selectedPml.nama_pml : ''}
                                 readOnly
-                                placeholder={data.survei_id ? 'Memilih PML...' : 'Pilih survei terlebih dahulu'}
+                                placeholder={data.survei_id ? 'PML belum tersedia untuk survei ini' : 'Pilih survei terlebih dahulu'}
                                 className={`w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.pml_id ? 'border-red-300' : 'border-gray-200'}`} />
                             {errors.pml_id && <p className="text-red-500 text-xs mt-1">{errors.pml_id}</p>}
                         </div>
@@ -881,10 +940,10 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                     setData('desa_id', '');
                                     setData('sls_id', '');
                                 }}
-                                disabled={isReadOnlyMode || loadingKecamatan}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.kecamatan_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingKecamatan ? 'bg-gray-100' : ''}`}>
+                                disabled={isReadOnlyMode || loadingKecamatan || (role === 'PCL' && (!data.survei_id || !selectedPml))}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.kecamatan_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingKecamatan || (role === 'PCL' && (!data.survei_id || !selectedPml)) ? 'bg-gray-100' : ''}`}>
                                 <option value="">Pilih Kecamatan</option>
-                                {kecamatanList.map(k => (
+                                {(role === 'PCL' ? formKecamatanList : kecamatanList).map(k => (
                                     <option key={k.id} value={k.id}>{k.nama}</option>
                                 ))}
                             </select>
@@ -897,8 +956,8 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                                     setData('desa_id', e.target.value);
                                     setData('sls_id', '');
                                 }}
-                                disabled={isReadOnlyMode || loadingDesa || !data.kecamatan_id}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingDesa ? 'bg-gray-100' : ''}`}>
+                                disabled={isReadOnlyMode || loadingDesa || !data.kecamatan_id || (role === 'PCL' && (!data.survei_id || !selectedPml))}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.desa_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingDesa || (role === 'PCL' && (!data.survei_id || !selectedPml)) ? 'bg-gray-100' : ''}`}>
                                 <option value="">Pilih Desa</option>
                                 {desaList.map(d => (
                                     <option key={d.id} value={d.id}>{d.nama}</option>
@@ -910,8 +969,8 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">SLS</label>
                             <select value={data.sls_id} onChange={e => setData('sls_id', e.target.value)}
-                                disabled={isReadOnlyMode || loadingSls || !data.desa_id}
-                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingSls ? 'bg-gray-100' : ''}`}>
+                                disabled={isReadOnlyMode || loadingSls || !data.desa_id || (role === 'PCL' && (!data.survei_id || !selectedPml))}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.sls_id ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode || loadingSls || (role === 'PCL' && (!data.survei_id || !selectedPml)) ? 'bg-gray-100' : ''}`}>
                                 <option value="">Pilih SLS</option>
                                 {slsList.map(s => (
                                     <option key={s.id} value={s.id}>{s.nomor_sls}</option>
@@ -980,7 +1039,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                             Batal
                         </button>
                         {!isReadOnlyMode && (
-                            <button type="submit" disabled={processing}
+                            <button type="submit" disabled={processing || (!editData && role === 'PCL' && (!data.survei_id || !selectedPml))}
                                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
                                 {processing ? 'Menyimpan...' : editData ? 'Simpan Perubahan' : 'Tambah Laporan'}
                             </button>

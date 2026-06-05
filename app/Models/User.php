@@ -27,6 +27,7 @@ class User extends Authenticatable
 
     public function pml() { return $this->hasOne(Pml::class); }
     public function pcl() { return $this->hasOne(Pcl::class); }
+    public function pcls() { return $this->hasMany(Pcl::class); }
     protected function casts(): array
     {
         return [

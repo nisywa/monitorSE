@@ -18,14 +18,14 @@ class LaporanPolicy
     /**
      * PML atau PCL pemilik laporan dapat update laporan
      */
-    public function update(User $user, Laporan $laporan = null): bool
+    public function update(User $user, ?Laporan $laporan = null): bool
     {
         if ($user->role === 'PML') {
             return true;
         }
 
         if ($user->role === 'PCL' && $laporan) {
-            return $laporan->pcl_id === $user->pcl?->id;
+            return $user->pcls()->whereKey($laporan->pcl_id)->exists();
         }
 
         return false;
@@ -34,14 +34,14 @@ class LaporanPolicy
     /**
      * PML atau PCL pemilik laporan dapat hapus laporan
      */
-    public function delete(User $user, Laporan $laporan = null): bool
+    public function delete(User $user, ?Laporan $laporan = null): bool
     {
         if ($user->role === 'PML') {
             return true;
         }
 
         if ($user->role === 'PCL' && $laporan) {
-            return $laporan->pcl_id === $user->pcl?->id;
+            return $user->pcls()->whereKey($laporan->pcl_id)->exists();
         }
 
         return false;
