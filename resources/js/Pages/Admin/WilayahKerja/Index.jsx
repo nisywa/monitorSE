@@ -173,46 +173,53 @@ export default function Index({ kecamatan: initialKecamatan }) {
         }));
 
         try {
-            const token = document.querySelector('meta[name="csrf-token"]')?.content || window.csrf_token || document.querySelector('input[name="_token"]')?.value;
-            const res = await fetch('/wilayah-kerja/import', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ rows: payload }),
-            });
+            // Try to extract CSRF token from meta tag or window variable
+            const token = document.querySelector('meta[name="csrf-token"]')?.content || window.csrf_token || document.querySelector('input[name="_token"]')?.value || (() => {
+                // Fallback: read XSRF-TOKEN cookie
+                const match = document.cookie.match(new RegExp('(^| )XSRF-TOKEN=([^;]+)'));
+                return match ? decodeURIComponent(match[2]) : null;
+            })();
 
-            const contentType = res.headers.get('content-type') || '';
-            let result;
-            if (contentType.includes('application/json')) {
-                result = await res.json();
-            } else {
-                const text = await res.text();
-                if (res.ok) {
-                    // Redirect back with success message
-                    window.location.reload();
-                    return;
-                }
-                throw new Error('Server returned non-JSON response');
-            }
+            // Configure axios to include credentials (cookies) for session-based CSRF
+            axios.defaults.withCredentials = true;
+            axios.defaults.xsrfHeaderName = 'X-XSRF-TOKEN';
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            };
+            if (token) headers['X-CSRF-TOKEN'] = token;
+
+            const res = await axios.post('/wilayah-kerja/import', { rows: payload }, { headers });
 
             setImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
 
-            if (res.ok && result.success) {
-                alert('✓ ' + result.message);
+            if (res.status === 200 && res.data && res.data.success) {
+                alert('✓ ' + res.data.message);
                 setTimeout(() => window.location.reload(), 800);
+            } else if (res.status === 200 && res.data && !res.data.success) {
+                alert('✗ Error: ' + (res.data.message || 'Gagal import data'));
             } else {
-                alert('✗ Error: ' + (result.message || 'Gagal import data'));
+                alert('✗ Error: Server returned unexpected response');
             }
         } catch (err) {
             console.error(err);
             setImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
-            alert('Gagal membaca file: ' + err.message);
+
+            // Detect Laravel CSRF (status 419) or token mismatch message
+            if (err.response) {
+                const status = err.response.status;
+                const msg = err.response.data?.message || err.response.data || err.message;
+                if (status === 419 || (typeof msg === 'string' && msg.toLowerCase().includes('csrf'))) {
+                    alert('✗ Error: CSRF token mismatch. Silakan muat ulang halaman dan coba lagi.');
+                    return;
+                }
+                alert('✗ Error: ' + (msg || 'Gagal import data'));
+            } else {
+                alert('Gagal membaca file: ' + err.message);
+            }
         }
     };
 
@@ -272,7 +279,7 @@ export default function Index({ kecamatan: initialKecamatan }) {
                             className="inline-flex items-center px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors font-medium"
                         >
                             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l4-4m0 0l4 4m-4-4v12" />
                             </svg>
                             Import Excel
                         </button>

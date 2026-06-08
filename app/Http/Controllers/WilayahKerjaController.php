@@ -361,8 +361,22 @@ class WilayahKerjaController extends Controller
                 $message .= " Beberapa baris gagal: " . implode(', ', array_slice($errors, 0, 3));
             }
 
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                ]);
+            }
+
             return back()->with('success', $message);
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengimport data: ' . $e->getMessage(),
+                ], 500);
+            }
+
             return back()->with('error', 'Gagal mengimport data: ' . $e->getMessage());
         }
     }
