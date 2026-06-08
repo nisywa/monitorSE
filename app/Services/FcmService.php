@@ -35,9 +35,24 @@ class FcmService
             throw new \RuntimeException("FCM service account file not found at {$credentialsFile}");
         }
 
-        $serviceAccount = json_decode(file_get_contents($credentialsFile), true);
+        $content = file_get_contents($credentialsFile);
+        if ($content === false) {
+            throw new \RuntimeException("Unable to read FCM service account file at {$credentialsFile}");
+        }
+
+        if (substr($content, 0, 2) === "\xFF\xFE" || substr($content, 0, 2) === "\xFE\xFF") {
+            $content = mb_convert_encoding($content, 'UTF-8', 'UTF-16');
+        } else {
+            $encoding = mb_detect_encoding($content, ['UTF-8', 'UTF-16LE', 'UTF-16BE'], true);
+            if ($encoding && $encoding !== 'UTF-8') {
+                $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+            }
+        }
+
+        $content = trim($content);
+        $serviceAccount = json_decode($content, true);
         if (!is_array($serviceAccount)) {
-            throw new \RuntimeException('Invalid FCM service account JSON file.');
+            throw new \RuntimeException('Invalid FCM service account JSON file. Ensure it is valid JSON and encoded as UTF-8.');
         }
 
         $credentials = new ServiceAccountCredentials(

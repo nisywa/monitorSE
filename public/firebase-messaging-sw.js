@@ -15,12 +15,36 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  const notificationTitle = payload.notification.title || 'Notifikasi';
+  console.log('FCM background message received in service worker:', payload);
+
+  const notificationTitle = payload.notification?.title || 'Notifikasi';
   const notificationOptions = {
-    body: payload.notification.body || '',
+    body: payload.notification?.body || '',
     icon: '/logo.png',
     data: payload.data || {}
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+
+  self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(clients => {
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'FCM_BACKGROUND_NOTIFICATION',
+        payload,
+      });
+    });
+  });
+});
+
+self.addEventListener('notificationclick', function(event) {
+  console.log('Notification clicked:', event.notification?.data);
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      if (clientList.length > 0) {
+        return clientList[0].focus();
+      }
+      return self.clients.openWindow('/');
+    })
+  );
 });

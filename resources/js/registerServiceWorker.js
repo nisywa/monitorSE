@@ -8,5 +8,11 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
             .catch((err) => {
                 console.warn('Service Worker registration failed:', err);
             });
+
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data?.type === 'FCM_BACKGROUND_NOTIFICATION') {
+                console.log('FCM reminder delivered to browser:', event.data.payload);
+            }
+        });
     });
 }
