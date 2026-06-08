@@ -79,6 +79,12 @@ class SendDailyReminder extends Command
             }
         }
 
+        // Also send an aggregate notification to admin (optional)
+        $adminTokens = \App\Models\User::where('role', 'admin')->whereNotNull('fcm_token')->pluck('fcm_token')->toArray();
+        if (!empty($adminTokens)) {
+            $this->fcm->sendToTokens($adminTokens, 'Laporan Harian - Ringkasan', 'Terdapat ' . count($missingPcls) . ' PCL yang belum submit laporan hari ini.');
+        }
+
         $this->info('Daily reminder executed. Missing PCLs: ' . count($missingPcls));
 
         return 0;
