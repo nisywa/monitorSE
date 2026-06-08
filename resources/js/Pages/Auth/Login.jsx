@@ -205,7 +205,15 @@ export default function Login() {
                     <div style={{ width: '100%', maxWidth: '290px' }}>
 
                         {/* Heading */}
-                        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <img
+                                    src="/logo2.png"
+                                    alt="Logo Pinrang Monitoring"
+                                    style={{ maxWidth: '100px', width: '100%', height: 'auto', display: 'inline-block' }}
+                                    onError={e => { e.target.style.display = 'none'; }}
+                                />
+                            </div>
                             <p style={{
                                 margin: '0 0 5px',
                                 fontSize: '13px',
