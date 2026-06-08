@@ -17,6 +17,7 @@ use App\Http\Controllers\SurveiController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\WilayahKerjaController;
 use App\Http\Controllers\DebugController;
+use App\Http\Controllers\DeviceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -115,6 +116,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/wilayah-kerja/kecamatan-list', [WilayahKerjaController::class, 'getKecamatanList'])->name('wilayah-kerja.kecamatan-list');
     Route::get('/api/wilayah-kerja/desa/{kecamatanId}', [WilayahKerjaController::class, 'getDesaByKecamatan'])->name('wilayah-kerja.desa');
     Route::get('/api/wilayah-kerja/sls/{desaId}', [WilayahKerjaController::class, 'getSlsByDesa'])->name('wilayah-kerja.sls');
+
+    // API: store device FCM token (authenticated users)
+    Route::post('/api/device-token', [DeviceController::class, 'store'])->name('device.token');
+    // Route to remove token
+    Route::post('/device-token/remove', function () {
+        $user = auth()->user();
+        if ($user) {
+            $user->fcm_token = null;
+            $user->save();
+        }
+        return redirect()->back();
+    })->name('device.token.remove');
 
     /*
     |------------------------------------------------------------------

@@ -7,6 +7,7 @@ import FormModal from '@/Components/FormModal';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
+import { registerFcm } from '@/fcm-register';
 
 export default function Index({ kecamatan: initialKecamatan }) {
     const [kecamatan, setKecamatan] = useState(initialKecamatan);
@@ -229,6 +230,28 @@ export default function Index({ kecamatan: initialKecamatan }) {
         setImportErrors([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
+
+    // Register FCM when component mounts (only for authenticated users)
+    React.useEffect(() => {
+        try {
+            const firebaseConfig = {
+                apiKey: process.env.MIX_FIREBASE_API_KEY || window._app_firebase?.apiKey,
+                authDomain: process.env.MIX_FIREBASE_AUTH_DOMAIN || window._app_firebase?.authDomain,
+                projectId: process.env.MIX_FIREBASE_PROJECT_ID || window._app_firebase?.projectId,
+                storageBucket: process.env.MIX_FIREBASE_STORAGE_BUCKET || window._app_firebase?.storageBucket,
+                messagingSenderId: process.env.MIX_FIREBASE_MESSAGING_SENDER_ID || window._app_firebase?.messagingSenderId,
+                appId: process.env.MIX_FIREBASE_APP_ID || window._app_firebase?.appId,
+            };
+            const vapidKey = process.env.MIX_FIREBASE_VAPID_KEY || window._app_firebase?.vapidKey;
+            if (firebaseConfig.apiKey && vapidKey) {
+                registerFcm(firebaseConfig, vapidKey).then(token => {
+                    if (token) console.log('FCM token registered', token);
+                });
+            }
+        } catch (err) {
+            console.error('FCM init error', err);
+        }
+    }, []);
 
     if (selectedDesa) {
         return (
