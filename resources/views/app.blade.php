@@ -7,8 +7,8 @@
     <title>Monitoring App</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="{{ asset('public/logo2.png') }}">
-    <link rel="shortcut icon" href="{{ asset('public/logo2.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('logo2.png') }}">
+    <link rel="shortcut icon" href="{{ asset('logo2.png') }}">
 
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.jsx'])

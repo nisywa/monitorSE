@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Google\Auth\Credentials\ServiceAccountCredentials;
 
 class FcmService
@@ -73,7 +74,6 @@ class FcmService
                         'title' => $title,
                         'body'  => $body,
                     ],
-                    'data' => array_map('strval', $data), // semua value harus string
                     'android' => [
                         'priority' => 'high',
                     ],
@@ -91,12 +91,21 @@ class FcmService
                 ],
             ];
 
+            if (!empty($data)) {
+                $payload['message']['data'] = array_map('strval', $data);
+            }
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $accessToken,
                 'Content-Type'  => 'application/json',
             ])->post($url, $payload);
 
             if (!$response->successful()) {
+                Log::warning('FCM send failed', [
+                    'token' => $token,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
                 $success = false;
             }
         }

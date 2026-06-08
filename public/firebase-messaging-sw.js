@@ -1,14 +1,14 @@
 importScripts('https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.6.10/firebase-messaging-compat.js');
 
-// TODO: replace with your Firebase config
+// Firebase config for service worker
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCyg0UnSvbI_j--F690swXWWgz0dUQuFis",
+  authDomain: "monitoring-afb38.firebaseapp.com",
+  projectId: "monitoring-afb38",
+  storageBucket: "monitoring-afb38.firebasestorage.app",
+  messagingSenderId: "477576003667",
+  appId: "1:477576003667:web:f71e0b99ac0a8946e006a6",
 };
 
 firebase.initializeApp(firebaseConfig);

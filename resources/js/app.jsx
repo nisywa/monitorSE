@@ -17,6 +17,7 @@
 //         <App />
 //     </React.StrictMode>
 // );
+import './app.js';
 import axios from 'axios';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
