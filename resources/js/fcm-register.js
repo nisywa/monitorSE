@@ -41,10 +41,40 @@ export async function registerFcm(firebaseConfig, vapidKey) {
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') return null;
 
-        // compat getToken supports passing vapidKey in options
-        const currentToken = await messaging.getToken({ vapidKey });
+        // Wait for an active service worker registration before subscribing
+        let swRegistration = null;
+        if ('serviceWorker' in navigator) {
+            try {
+                // Try to get existing registration for the service worker file
+                swRegistration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+
+                // If no registration exists yet, try to register it (ensures it's available)
+                if (!swRegistration) {
+                    try {
+                        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                        console.log('Service worker registered from fcm-register:', swRegistration.scope);
+                    } catch (regErr) {
+                        console.warn('Service worker registration from fcm-register failed:', regErr);
+                    }
+                }
+
+                // Wait until a service worker is active and ready
+                swRegistration = await navigator.serviceWorker.ready;
+            } catch (e) {
+                console.warn('Service Worker not ready:', e);
+            }
+        }
+
+        // compat getToken supports passing vapidKey in options; also pass service worker registration
+        const tokenOptions = swRegistration ? { vapidKey, serviceWorkerRegistration: swRegistration } : { vapidKey };
+        const currentToken = await messaging.getToken(tokenOptions);
         if (currentToken) {
             try {
+                // Ensure axios sends credentials (session cookie) and CSRF header so the authenticated endpoint accepts the token
+                axios.defaults.withCredentials = true;
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.content || window.csrf_token || null;
+                if (csrf) axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf;
+
                 await axios.post('/api/device-token', { token: currentToken });
             } catch (err) {
                 console.error('Failed to send token to server', err);
