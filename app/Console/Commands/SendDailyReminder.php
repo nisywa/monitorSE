@@ -87,14 +87,17 @@ class SendDailyReminder extends Command
         $pmlMap = [];
         foreach ($missingPcls as $pcl) {
             foreach ($pcl->pmls as $pml) {
+                $pclName = $pcl->nama_pcl ?? ($pcl->user->nama ?? 'PCL');
+                $pclKey = strtolower(trim((string) $pclName)) ?: 'pcl-' . $pcl->id;
+
                 $pmlMap[$pml->id]['pml'] = $pml;
-                $pmlMap[$pml->id]['pcls'][] = $pcl->nama_pcl ?? ($pcl->user->nama ?? 'PCL');
+                $pmlMap[$pml->id]['pcls'][$pclKey] = $pclName;
             }
         }
 
         foreach ($pmlMap as $entry) {
             $pml = $entry['pml'];
-            $names = $entry['pcls'];
+            $names = array_values($entry['pcls']);
             $count = count($names);
             $title = "Reminder: Ada {$count} PCL belum submit laporan";
             $body = "PCL: " . implode(', ', $names);
