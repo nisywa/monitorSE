@@ -153,13 +153,15 @@ class LaporanController extends Controller
                     if ($isResponsible) {
                         $pmlSurveiIds = [$selectedSurvei];
 
-                        // Ambil semua PCL yang terdaftar pada survei tersebut
-                        // dan belum memiliki laporan untuk tanggal filter terpilih
-                        $pclsBelum = Pcl::whereHas('surveis', function ($query) use ($pmlSurveiIds) {
+                        // Ambil hanya PCL yang berada di bawah tanggung jawab PML login
+                        // pada survei terpilih, lalu cek laporan untuk PML dan tanggal tersebut.
+                        $pclsBelum = $pml->pcls()
+                            ->whereHas('surveis', function ($query) use ($pmlSurveiIds) {
                                 $query->whereIn('survei.id', $pmlSurveiIds);
                             })
-                            ->whereDoesntHave('laporan', function ($query) use ($pmlSurveiIds, $reportDate) {
+                            ->whereDoesntHave('laporan', function ($query) use ($pml, $pmlSurveiIds, $reportDate) {
                                 $query->whereIn('survei_id', $pmlSurveiIds)
+                                    ->where('pml_id', $pml->id)
                                     ->whereDate('tanggal', $reportDate);
                             })
                             ->get();
