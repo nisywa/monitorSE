@@ -40,6 +40,9 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         data_cacah: '',
         data_keluarga: '',
         data_submit: '',
+        menemukan_usaha_digital: '',
+        jumlah_usaha_digital: '',
+        keterangan: '',
     });
 
     const isReadOnlyMode = editData && role === 'PML';
@@ -76,6 +79,9 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
             data_usaha: String(laporan.data_usaha),
             data_keluarga: String(laporan.data_keluarga),
             data_submit: String(laporan.data_submit ?? 0),
+            menemukan_usaha_digital: laporan.menemukan_usaha_digital ? '1' : '0',
+            jumlah_usaha_digital: String(laporan.jumlah_usaha_digital ?? 0),
+            keterangan: laporan.keterangan ?? '',
         });
         clearErrors();
         setShowModal(true);
@@ -988,9 +994,11 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                         {errors.tanggal && <p className="text-red-500 text-xs mt-1">{errors.tanggal}</p>}
                     </div>
 
+                    
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Data Usaha</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Usaha Ditemukan</label>
                             <input type="number" min="0" value={data.data_usaha} onChange={e => setData('data_usaha', e.target.value)}
                                 disabled={isReadOnlyMode}
                                 className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.data_usaha ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -998,7 +1006,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                             {errors.data_usaha && <p className="text-red-500 text-xs mt-1">{errors.data_usaha}</p>}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Data Keluarga</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah Keluarga Ditemukan</label>
                             <input type="number" min="0" value={data.data_keluarga} onChange={e => setData('data_keluarga', e.target.value)}
                                 disabled={isReadOnlyMode}
                                 className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.data_keluarga ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -1009,7 +1017,7 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
 
                     <div className="grid grid-cols-2 gap-4">
                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Data Cacah</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Assignment Berhasil Dicacah</label>
                             <input type="number" min="0" value={data.data_cacah} onChange={e => setData('data_cacah', e.target.value)}
                                 disabled={isReadOnlyMode}
                                 className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.data_cacah ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -1018,13 +1026,70 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
                         </div>
                         <div>
 
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Data Submit</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assignment Status Submit</label>
                         <input type="number" min="0" value={data.data_submit} onChange={e => setData('data_submit', e.target.value)}
                             disabled={isReadOnlyMode}
                             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.data_submit ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="0" />
                         {errors.data_submit && <p className="text-red-500 text-xs mt-1">{errors.data_submit}</p>}
                             </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Apakah menemukan usaha digital/online hari ini?</label>
+                        <div className="flex gap-6 rounded-lg border border-gray-200 px-3 py-2">
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="radio"
+                                    name="menemukan_usaha_digital"
+                                    value="1"
+                                    checked={data.menemukan_usaha_digital === '1'}
+                                    onChange={e => setData('menemukan_usaha_digital', e.target.value)}
+                                    disabled={isReadOnlyMode}
+                                    className="text-blue-600 focus:ring-blue-500"
+                                />
+                                Ya
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="radio"
+                                    name="menemukan_usaha_digital"
+                                    value="0"
+                                    checked={data.menemukan_usaha_digital === '0'}
+                                    onChange={e => {
+                                        setData({
+                                            ...data,
+                                            menemukan_usaha_digital: e.target.value,
+                                            jumlah_usaha_digital: '',
+                                        });
+                                    }}
+                                    disabled={isReadOnlyMode}
+                                    className="text-blue-600 focus:ring-blue-500"
+                                />
+                                Tidak
+                            </label>
+                        </div>
+                        {errors.menemukan_usaha_digital && <p className="text-red-500 text-xs mt-1">{errors.menemukan_usaha_digital}</p>}
+                    </div>
+
+                    {data.menemukan_usaha_digital === '1' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Berapa usaha digital/online yang ditemukan?</label>
+                            <input type="number" min="0" value={data.jumlah_usaha_digital} onChange={e => setData('jumlah_usaha_digital', e.target.value)}
+                                disabled={isReadOnlyMode}
+                                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.jumlah_usaha_digital ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                placeholder="0" />
+                            {errors.jumlah_usaha_digital && <p className="text-red-500 text-xs mt-1">{errors.jumlah_usaha_digital}</p>}
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                        <input type="text" value={data.keterangan} onChange={e => setData('keterangan', e.target.value)}
+                            disabled={isReadOnlyMode}
+                            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.keterangan ? 'border-red-300' : 'border-gray-200'} ${isReadOnlyMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            placeholder="Isikan jika terdapat kendala yang terjadi saat pendataan berlangsung." />
+                        {errors.keterangan && <p className="text-red-500 text-xs mt-1">{errors.keterangan}</p>}
                     </div>
 
                     {isReadOnlyMode && (

@@ -63,6 +63,9 @@ class LaporanController extends Controller
                     'data_usaha'     => (int) ($laporan->data_usaha ?? 0),
                     'data_keluarga'  => (int) ($laporan->data_keluarga ?? 0),
                     'data_submit'    => (int) ($laporan->data_submit ?? 0),
+                    'menemukan_usaha_digital' => (bool) ($laporan->menemukan_usaha_digital ?? false),
+                    'jumlah_usaha_digital'    => (int) ($laporan->jumlah_usaha_digital ?? 0),
+                    'keterangan'      => $laporan->keterangan,
                     'kecamatan_id'   => (int) ($laporan->kecamatan_id ?? 0),
                     'desa_id'        => (int) ($laporan->desa_id ?? 0),
                     'sls_id'         => (int) ($laporan->sls_id ?? 0),
@@ -245,6 +248,9 @@ class LaporanController extends Controller
                         'data_usaha'     => $laporan->data_usaha,
                         'data_keluarga'  => $laporan->data_keluarga,
                         'data_submit'    => $laporan->data_submit,
+                        'menemukan_usaha_digital' => (bool) ($laporan->menemukan_usaha_digital ?? false),
+                        'jumlah_usaha_digital'    => (int) ($laporan->jumlah_usaha_digital ?? 0),
+                        'keterangan'      => $laporan->keterangan,
                     ];
                 });
         }
@@ -281,6 +287,9 @@ class LaporanController extends Controller
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
             'data_submit'  => 'required|integer|min:0',
+            'menemukan_usaha_digital' => 'required|boolean',
+            'jumlah_usaha_digital'    => 'nullable|required_if:menemukan_usaha_digital,1|integer|min:0',
+            'keterangan'   => 'nullable|string|max:1000',
         ], [
             'data_cacah.required'   => 'Data cacah wajib diisi.',
             'data_cacah.integer'    => 'Data cacah harus berupa angka.',
@@ -297,6 +306,10 @@ class LaporanController extends Controller
             'sls_id.exists'           => 'SLS tidak ditemukan.',
             'data_submit.required'   => 'Data submit wajib diisi.',
             'data_submit.integer'    => 'Data submit harus berupa angka.',
+            'menemukan_usaha_digital.required' => 'Pilihan temuan usaha digital/online wajib diisi.',
+            'menemukan_usaha_digital.boolean'  => 'Pilihan temuan usaha digital/online tidak valid.',
+            'jumlah_usaha_digital.required_if' => 'Jumlah usaha digital/online wajib diisi jika memilih Ya.',
+            'jumlah_usaha_digital.integer'     => 'Jumlah usaha digital/online harus berupa angka.',
         ]);
 
         $kecamatan = Kecamatan::findOrFail($request->kecamatan_id);
@@ -340,6 +353,9 @@ class LaporanController extends Controller
             'data_usaha'     => $request->data_usaha,
             'data_keluarga'  => $request->data_keluarga,
             'data_submit'    => $request->data_submit,
+            'menemukan_usaha_digital' => $request->boolean('menemukan_usaha_digital'),
+            'jumlah_usaha_digital'    => $request->boolean('menemukan_usaha_digital') ? (int) $request->jumlah_usaha_digital : 0,
+            'keterangan'      => $request->keterangan,
         ]);
 
         return redirect()->back()->with('success', 'Laporan berhasil ditambahkan.');
@@ -371,6 +387,9 @@ class LaporanController extends Controller
                     'data_usaha'     => $laporan->data_usaha,
                     'data_keluarga'  => $laporan->data_keluarga,
                     'data_submit'    => $laporan->data_submit,
+                    'menemukan_usaha_digital' => (bool) ($laporan->menemukan_usaha_digital ?? false),
+                    'jumlah_usaha_digital'    => (int) ($laporan->jumlah_usaha_digital ?? 0),
+                    'keterangan'      => $laporan->keterangan,
         ]);
     }
 
@@ -392,12 +411,19 @@ class LaporanController extends Controller
             'data_usaha'   => 'required|integer|min:0',
             'data_keluarga'=> 'required|integer|min:0',
             'data_submit'  => 'nullable|integer|min:0',
+            'menemukan_usaha_digital' => 'required|boolean',
+            'jumlah_usaha_digital'    => 'nullable|required_if:menemukan_usaha_digital,1|integer|min:0',
+            'keterangan'   => 'nullable|string|max:1000',
         ], [
             'tanggal.required'       => 'Tanggal wajib diisi.',
             'data_usaha.required'    => 'Data usaha wajib diisi.',
             'data_usaha.integer'     => 'Data usaha harus berupa angka.',
             'data_keluarga.required' => 'Data keluarga wajib diisi.',
             'data_keluarga.integer'  => 'Data keluarga harus berupa angka.',
+            'menemukan_usaha_digital.required' => 'Pilihan temuan usaha digital/online wajib diisi.',
+            'menemukan_usaha_digital.boolean'  => 'Pilihan temuan usaha digital/online tidak valid.',
+            'jumlah_usaha_digital.required_if' => 'Jumlah usaha digital/online wajib diisi jika memilih Ya.',
+            'jumlah_usaha_digital.integer'     => 'Jumlah usaha digital/online harus berupa angka.',
         ]);
 
         if (!Desa::where('id', $request->desa_id)->where('kecamatan_id', $request->kecamatan_id)->exists()) {
@@ -424,9 +450,23 @@ class LaporanController extends Controller
             'data_usaha'     => $request->data_usaha,
             'data_keluarga'  => $request->data_keluarga,
             'data_submit'    => $request->data_submit ?? $laporan->data_submit,
+            'menemukan_usaha_digital' => $request->boolean('menemukan_usaha_digital'),
+            'jumlah_usaha_digital'    => $request->boolean('menemukan_usaha_digital') ? (int) $request->jumlah_usaha_digital : 0,
+            'keterangan'      => $request->keterangan,
         ]);
 
         return redirect()->back()->with('success', 'Laporan berhasil diperbarui.');
+    }
+
+    public function destroy($id)
+    {
+        $laporan = Laporan::findOrFail($id);
+
+        $this->authorize('delete', $laporan);
+
+        $laporan->delete();
+
+        return redirect()->back()->with('success', 'Laporan berhasil dihapus.');
     }
 
     private function getPclAssignmentContext($user): array
