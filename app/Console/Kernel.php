@@ -21,8 +21,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Run daily at 19:00 (adjust to desired time)
-        $schedule->command('send:daily-reminder')->dailyAt('19:00');
+        $schedule->command('send:daily-reminder')
+            ->dailyAt('20:00')
+            ->timezone('Asia/Makassar')
+            ->withoutOverlapping();
     }
 
     /**

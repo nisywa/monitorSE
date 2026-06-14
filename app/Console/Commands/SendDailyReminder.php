@@ -35,7 +35,7 @@ class SendDailyReminder extends Command
 
     public function handle()
     {
-        $today = Carbon::today();
+        $today = Carbon::today('Asia/Makassar');
 
         $missingPcls = [];
 
