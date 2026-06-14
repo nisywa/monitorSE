@@ -175,7 +175,10 @@ class LaporanController extends Controller
                                 'sls'            => $pcl->sls,
                                 'no_telp'        => $pcl->no_telp,
                             ];
-                        })->unique('pcl_id')->values()->toArray();
+                        })
+                            ->unique(fn ($pcl) => strtolower(trim((string) $pcl['nama_pcl'])))
+                            ->values()
+                            ->toArray();
                     }
                 }
             }
