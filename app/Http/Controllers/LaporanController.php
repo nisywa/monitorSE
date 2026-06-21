@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Inertia\Inertia;
 use App\Models\Laporan;
 use App\Models\Survei;
 use App\Models\Pcl;
+use App\Models\Pml;
 use App\Models\Kecamatan;
 use App\Models\Desa;
 use App\Models\Sls;
@@ -208,19 +210,195 @@ class LaporanController extends Controller
     {
         $selectedSurvei = $request->query('survei_id');
         $selectedKecamatan = $request->query('kecamatan_id');
+        $selectedPml = $request->query('pml_id');
         $selectedDesa = $request->query('desa_id');
         $selectedSls = $request->query('sls_id');
         $selectedTanggal = $request->query('tanggal');
 
+        if (!$selectedSurvei) {
+            $selectedKecamatan = null;
+            $selectedPml = null;
+            $selectedDesa = null;
+            $selectedSls = null;
+        } elseif (!$selectedKecamatan) {
+            $selectedPml = null;
+            $selectedDesa = null;
+            $selectedSls = null;
+        } elseif (!$selectedPml) {
+            $selectedDesa = null;
+            $selectedSls = null;
+        } elseif (!$selectedDesa) {
+            $selectedSls = null;
+        }
+
         $surveis = Survei::select('id', 'nama_survei')->get();
+        $filterOptions = [
+            'kecamatan' => collect(),
+            'pml' => collect(),
+            'desa' => collect(),
+            'sls' => collect(),
+        ];
 
         $laporans = [];
         if ($selectedSurvei) {
+            $baseFilterQuery = Laporan::query()
+                ->where('survei_id', $selectedSurvei);
+
+            $filterOptions['kecamatan'] = Kecamatan::where('kabupaten', 'Pinrang')
+                ->where('provinsi', 'Sulawesi Selatan')
+                ->orderBy('nama')
+                ->get(['id', 'nama']);
+
+            if ($selectedKecamatan) {
+                $selectedKecamatanName = Kecamatan::where('id', $selectedKecamatan)->value('nama');
+
+                $filterOptions['pml'] = Pml::select('pml.id', 'pml.nama_pml')
+                    ->whereHas('surveis', function ($query) use ($selectedSurvei) {
+                        $query->where('survei.id', $selectedSurvei);
+                    })
+                    ->whereHas('pcls', function ($query) use ($selectedSurvei, $selectedKecamatanName) {
+                        $query->whereHas('surveis', function ($query) use ($selectedSurvei) {
+                            $query->where('survei.id', $selectedSurvei);
+                        });
+
+                        if ($selectedKecamatanName) {
+                            $query->whereRaw('LOWER(TRIM(asal_kecamatan)) = ?', [
+                                $this->normalizeAssignmentValue($selectedKecamatanName),
+                            ]);
+                        }
+                    })
+                    ->orderBy('pml.nama_pml')
+                    ->distinct()
+                    ->get()
+                    ->map(fn ($pml) => [
+                        'id' => $pml->id,
+                        'nama_pml' => $pml->nama_pml,
+                    ]);
+            }
+
+            if ($selectedKecamatan && $selectedPml) {
+                $selectedKecamatanName = Kecamatan::where('id', $selectedKecamatan)->value('nama');
+                $assignedDesaNames = Pcl::whereHas('surveis', function ($query) use ($selectedSurvei) {
+                        $query->where('survei.id', $selectedSurvei);
+                    })
+                    ->whereHas('pmls', function ($query) use ($selectedPml) {
+                        $query->where('pml.id', $selectedPml);
+                    })
+                    ->when($selectedKecamatanName, function ($query) use ($selectedKecamatanName) {
+                        $query->whereRaw('LOWER(TRIM(asal_kecamatan)) = ?', [
+                            $this->normalizeAssignmentValue($selectedKecamatanName),
+                        ]);
+                    })
+                    ->pluck('desa')
+                    ->map(fn ($desa) => $this->normalizeAssignmentValue($desa))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                $filterOptions['desa'] = Desa::where('kecamatan_id', $selectedKecamatan)
+                    ->when($assignedDesaNames->isNotEmpty(), function ($query) use ($assignedDesaNames) {
+                        $query->whereIn(DB::raw('LOWER(TRIM(nama))'), $assignedDesaNames->all());
+                    })
+                    ->orderBy('nama')
+                    ->get(['id', 'nama'])
+                    ->map(fn ($desa) => [
+                        'id' => $desa->id,
+                        'nama' => $desa->nama,
+                    ]);
+            }
+
+            if ($selectedKecamatan && $selectedPml && $selectedDesa) {
+                $filterOptions['sls'] = Sls::where('desa_id', $selectedDesa)
+                    ->orderBy('nomor_sls')
+                    ->get(['id', 'nomor_sls'])
+                    ->map(fn ($sls) => [
+                        'id' => $sls->id,
+                        'nomor_sls' => $sls->nomor_sls,
+                    ]);
+            }
+
+            if ($filterOptions['pml']->isEmpty() && $selectedKecamatan) {
+                $filterOptions['pml'] = (clone $baseFilterQuery)
+                    ->where('kecamatan_id', $selectedKecamatan)
+                    ->with('pml:id,nama_pml')
+                    ->whereNotNull('pml_id')
+                    ->get()
+                    ->map(fn ($laporan) => $laporan->pml)
+                    ->filter()
+                    ->unique('id')
+                    ->sortBy('nama_pml')
+                    ->values()
+                    ->map(fn ($pml) => [
+                        'id' => $pml->id,
+                        'nama_pml' => $pml->nama_pml,
+                    ]);
+            }
+
+            if ($filterOptions['desa']->isEmpty() && $selectedKecamatan && $selectedPml) {
+                $filterOptions['desa'] = (clone $baseFilterQuery)
+                    ->where('kecamatan_id', $selectedKecamatan)
+                    ->where('pml_id', $selectedPml)
+                    ->with('desa:id,nama')
+                    ->whereNotNull('desa_id')
+                    ->get()
+                    ->map(fn ($laporan) => $laporan->desa)
+                    ->filter()
+                    ->unique('id')
+                    ->sortBy('nama')
+                    ->values()
+                    ->map(fn ($desa) => [
+                        'id' => $desa->id,
+                        'nama' => $desa->nama,
+                    ]);
+            }
+
+            if ($filterOptions['sls']->isEmpty() && $selectedKecamatan && $selectedPml && $selectedDesa) {
+                $filterOptions['sls'] = (clone $baseFilterQuery)
+                    ->where('kecamatan_id', $selectedKecamatan)
+                    ->where('pml_id', $selectedPml)
+                    ->where('desa_id', $selectedDesa)
+                    ->with('sls:id,nomor_sls')
+                    ->whereNotNull('sls_id')
+                    ->get()
+                    ->map(fn ($laporan) => $laporan->sls)
+                    ->filter()
+                    ->unique('id')
+                    ->sortBy('nomor_sls')
+                    ->values()
+                    ->map(fn ($sls) => [
+                        'id' => $sls->id,
+                        'nomor_sls' => $sls->nomor_sls,
+                    ]);
+            }
+
+            if ($filterOptions['desa']->isEmpty() && $selectedKecamatan && $selectedPml) {
+                $filterOptions['desa'] = Desa::where('kecamatan_id', $selectedKecamatan)
+                    ->orderBy('nama')
+                    ->get(['id', 'nama'])
+                    ->map(fn ($desa) => [
+                        'id' => $desa->id,
+                        'nama' => $desa->nama,
+                    ]);
+            }
+
+            if ($filterOptions['sls']->isEmpty() && $selectedKecamatan && $selectedPml && $selectedDesa) {
+                $filterOptions['sls'] = Sls::where('desa_id', $selectedDesa)
+                    ->orderBy('nomor_sls')
+                    ->get(['id', 'nomor_sls'])
+                    ->map(fn ($sls) => [
+                        'id' => $sls->id,
+                        'nomor_sls' => $sls->nomor_sls,
+                    ]);
+            }
+
             $query = Laporan::with(['survei', 'pcl', 'pml', 'kecamatan', 'desa', 'sls'])
                 ->where('survei_id', $selectedSurvei);
 
             if ($selectedKecamatan) {
                 $query->where('kecamatan_id', $selectedKecamatan);
+            }
+            if ($selectedPml) {
+                $query->where('pml_id', $selectedPml);
             }
             if ($selectedDesa) {
                 $query->where('desa_id', $selectedDesa);
@@ -258,8 +436,10 @@ class LaporanController extends Controller
         return Inertia::render('DataPerLevel', [
             'surveis' => $surveis,
             'laporans' => $laporans,
+            'filterOptions' => $filterOptions,
             'selectedSurvei' => $selectedSurvei,
             'selectedKecamatan' => $selectedKecamatan,
+            'selectedPml' => $selectedPml,
             'selectedDesa' => $selectedDesa,
             'selectedSls' => $selectedSls,
             'selectedTanggal' => $selectedTanggal,

@@ -2,106 +2,60 @@ import { Head, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import MainLayout from '@/Layouts/MainLayout';
 
-export default function DataPerLevel({ surveis, laporans, selectedSurvei, selectedKecamatan, selectedDesa, selectedSls, selectedTanggal }) {
-    const [kecamatanList, setKecamatanList] = useState([]);
-    const [desaList, setDesaList] = useState([]);
-    const [slsList, setSlsList] = useState([]);
+export default function DataPerLevel({ surveis, laporans, filterOptions, selectedSurvei, selectedKecamatan, selectedPml, selectedDesa, selectedSls, selectedTanggal }) {
     const [kecamatan, setKecamatan] = useState(selectedKecamatan ?? '');
+    const [pml, setPml] = useState(selectedPml ?? '');
     const [desa, setDesa] = useState(selectedDesa ?? '');
     const [sls, setSls] = useState(selectedSls ?? '');
     const [tanggal, setTanggal] = useState(selectedTanggal ?? '');
-    const [loadingWilayah, setLoadingWilayah] = useState(false);
+
+    const kecamatanList = filterOptions?.kecamatan ?? [];
+    const pmlList = filterOptions?.pml ?? [];
+    const desaList = filterOptions?.desa ?? [];
+    const slsList = filterOptions?.sls ?? [];
 
     useEffect(() => {
         setKecamatan(selectedKecamatan ?? '');
+        setPml(selectedPml ?? '');
         setDesa(selectedDesa ?? '');
         setSls(selectedSls ?? '');
         setTanggal(selectedTanggal ?? '');
-    }, [selectedKecamatan, selectedDesa, selectedSls, selectedTanggal]);
-
-    useEffect(() => {
-        fetchKecamatanList();
-    }, []);
-
-    useEffect(() => {
-        if (kecamatan) {
-            fetchDesaList(kecamatan);
-        } else {
-            setDesaList([]);
-            setDesa('');
-            setSlsList([]);
-            setSls('');
-        }
-    }, [kecamatan]);
-
-    useEffect(() => {
-        if (desa) {
-            fetchSlsList(desa);
-        } else {
-            setSlsList([]);
-            setSls('');
-        }
-    }, [desa]);
-
-    const fetchKecamatanList = async () => {
-        setLoadingWilayah(true);
-        try {
-            const response = await fetch('/api/wilayah-kerja/kecamatan-list');
-            const data = await response.json();
-            setKecamatanList(data.data || []);
-        } catch (error) {
-            console.error('Error fetching kecamatan list:', error);
-            setKecamatanList([]);
-        } finally {
-            setLoadingWilayah(false);
-        }
-    };
-
-    const fetchDesaList = async (kecamatanId) => {
-        setLoadingWilayah(true);
-        try {
-            const response = await fetch(`/api/wilayah-kerja/desa/${kecamatanId}`);
-            const data = await response.json();
-            setDesaList(data.data || []);
-        } catch (error) {
-            console.error('Error fetching desa list:', error);
-            setDesaList([]);
-        } finally {
-            setLoadingWilayah(false);
-        }
-    };
-
-    const fetchSlsList = async (desaId) => {
-        setLoadingWilayah(true);
-        try {
-            const response = await fetch(`/api/wilayah-kerja/sls/${desaId}`);
-            const data = await response.json();
-            setSlsList(data.data || []);
-        } catch (error) {
-            console.error('Error fetching sls list:', error);
-            setSlsList([]);
-        } finally {
-            setLoadingWilayah(false);
-        }
-    };
+    }, [selectedKecamatan, selectedPml, selectedDesa, selectedSls, selectedTanggal]);
 
     const handleSurveiChange = (value) => {
+        setKecamatan('');
+        setPml('');
+        setDesa('');
+        setSls('');
         router.get('/data-per-level', {
             survei_id: value,
-            kecamatan_id: kecamatan || undefined,
-            desa_id: desa || undefined,
-            sls_id: sls || undefined,
             tanggal: tanggal || undefined,
         });
     };
 
     const handleKecamatanChange = (value) => {
         setKecamatan(value);
+        setPml('');
         setDesa('');
         setSls('');
         router.get('/data-per-level', {
             survei_id: selectedSurvei,
             kecamatan_id: value,
+            pml_id: undefined,
+            desa_id: undefined,
+            sls_id: undefined,
+            tanggal: tanggal || undefined,
+        });
+    };
+
+    const handlePmlChange = (value) => {
+        setPml(value);
+        setDesa('');
+        setSls('');
+        router.get('/data-per-level', {
+            survei_id: selectedSurvei,
+            kecamatan_id: kecamatan,
+            pml_id: value,
             desa_id: undefined,
             sls_id: undefined,
             tanggal: tanggal || undefined,
@@ -114,6 +68,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
         router.get('/data-per-level', {
             survei_id: selectedSurvei,
             kecamatan_id: kecamatan,
+            pml_id: pml,
             desa_id: value,
             sls_id: undefined,
             tanggal: tanggal || undefined,
@@ -125,6 +80,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
         router.get('/data-per-level', {
             survei_id: selectedSurvei,
             kecamatan_id: kecamatan,
+            pml_id: pml,
             desa_id: desa,
             sls_id: value,
             tanggal: tanggal || undefined,
@@ -136,6 +92,7 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
         router.get('/data-per-level', {
             survei_id: selectedSurvei,
             kecamatan_id: kecamatan || undefined,
+            pml_id: pml || undefined,
             desa_id: desa || undefined,
             sls_id: sls || undefined,
             tanggal: value || undefined,
@@ -156,14 +113,14 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800">Data per level</h2>
                     <p className="text-sm text-gray-500 mt-1">
-                        Pilih survei terlebih dahulu untuk menampilkan daftar laporan PCL. Gunakan filter kecamatan, desa, dan SLS untuk mempersempit hasil.
+                        Pilih survei terlebih dahulu untuk menampilkan daftar laporan PCL. Gunakan filter kecamatan, PML, desa, dan SLS untuk mempersempit hasil.
                     </p>
                 </div>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6">
-                <div className="grid gap-4 md:grid-cols-4">
-                    <div>
+                <div className="grid gap-4">
+                    <div className="md:max-w-xl">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Survei</label>
                         <select
                             value={selectedSurvei || ''}
@@ -177,49 +134,66 @@ export default function DataPerLevel({ surveis, laporans, selectedSurvei, select
                         </select>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan</label>
-                        <select
-                            value={kecamatan || ''}
-                            onChange={(e) => handleKecamatanChange(e.target.value)}
-                            disabled={!selectedSurvei}
-                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                        >
-                            <option value="">Semua Kecamatan</option>
-                            {kecamatanList.map((kecamatanItem) => (
-                                <option key={kecamatanItem.id} value={kecamatanItem.id}>{kecamatanItem.nama}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <div className="grid gap-4 md:grid-cols-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan</label>
+                            <select
+                                value={kecamatan || ''}
+                                onChange={(e) => handleKecamatanChange(e.target.value)}
+                                disabled={!selectedSurvei}
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                            >
+                                <option value="">Semua Kecamatan</option>
+                                {kecamatanList.map((kecamatanItem) => (
+                                    <option key={kecamatanItem.id} value={kecamatanItem.id}>{kecamatanItem.nama}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Desa</label>
-                        <select
-                            value={desa || ''}
-                            onChange={(e) => handleDesaChange(e.target.value)}
-                            disabled={!kecamatan || !selectedSurvei}
-                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                        >
-                            <option value="">Semua Desa</option>
-                            {desaList.map((desaItem) => (
-                                <option key={desaItem.id} value={desaItem.id}>{desaItem.nama}</option>
-                            ))}
-                        </select>
-                    </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">PML</label>
+                            <select
+                                value={pml || ''}
+                                onChange={(e) => handlePmlChange(e.target.value)}
+                                disabled={!kecamatan || !selectedSurvei}
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                            >
+                                <option value="">Semua PML</option>
+                                {pmlList.map((pmlItem) => (
+                                    <option key={pmlItem.id} value={pmlItem.id}>{pmlItem.nama_pml}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">SLS</label>
-                        <select
-                            value={sls || ''}
-                            onChange={(e) => handleSlsChange(e.target.value)}
-                            disabled={!desa || !selectedSurvei}
-                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                        >
-                            <option value="">Semua SLS</option>
-                            {slsList.map((slsItem) => (
-                                <option key={slsItem.id} value={slsItem.id}>{slsItem.nomor_sls}</option>
-                            ))}
-                        </select>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Desa</label>
+                            <select
+                                value={desa || ''}
+                                onChange={(e) => handleDesaChange(e.target.value)}
+                                disabled={!pml || !kecamatan || !selectedSurvei}
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                            >
+                                <option value="">Semua Desa</option>
+                                {desaList.map((desaItem) => (
+                                    <option key={desaItem.id} value={desaItem.id}>{desaItem.nama}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">SLS</label>
+                            <select
+                                value={sls || ''}
+                                onChange={(e) => handleSlsChange(e.target.value)}
+                                disabled={!desa || !pml || !selectedSurvei}
+                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                            >
+                                <option value="">Semua SLS</option>
+                                {slsList.map((slsItem) => (
+                                    <option key={slsItem.id} value={slsItem.id}>{slsItem.nomor_sls}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>

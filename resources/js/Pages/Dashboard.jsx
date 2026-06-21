@@ -37,28 +37,11 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
     const [loading, setLoading] = useState(false);
     const [kecamatanList, setKecamatanList] = useState([]);
     const [desaList, setDesaList] = useState([]);
-    const [slsList, setSlsList] = useState([]);
     const [selectedKecamatan, setSelectedKecamatan] = useState(null);
     const [selectedDesa, setSelectedDesa] = useState(null);
-    const [selectedSls, setSelectedSls] = useState(null);
     const [locationStats, setLocationStats] = useState(null);
     const [loadingWilayah, setLoadingWilayah] = useState(false);
     const [loadingLocationStats, setLoadingLocationStats] = useState(false);
-
-    // Effect untuk update PML options ketika survei berubah
-    useEffect(() => {
-        if (selectedSurvei && pmlsBySurvei && pmlsBySurvei[selectedSurvei]) {
-            setPmlOptions(pmlsBySurvei[selectedSurvei]);
-            setSelectedPml(null);
-            setPclChartData([]);
-            setPmlName('');
-        } else {
-            setPmlOptions([]);
-            setSelectedPml(null);
-            setPclChartData([]);
-            setPmlName('');
-        }
-    }, [selectedSurvei]);
 
     // Effect untuk fetch chart data ketika survei, PML, atau filter lokasi berubah
     useEffect(() => {
@@ -71,7 +54,6 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
 
             if (selectedKecamatan) params.set('kecamatan_id', selectedKecamatan);
             if (selectedDesa) params.set('desa_id', selectedDesa);
-            if (selectedSls) params.set('sls_id', selectedSls);
 
             fetch(`/api/dashboard/chart-data-by-pml?${params.toString()}`)
                 .then(response => response.json())
@@ -87,47 +69,23 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
         } else {
             setPclChartData([]);
         }
-    }, [selectedSurvei, selectedPml, selectedKecamatan, selectedDesa, selectedSls]);
+    }, [selectedSurvei, selectedPml, selectedKecamatan, selectedDesa]);
 
     const displayStats = locationStats || stats;
 
-    const fetchKecamatanList = async () => {
+    const fetchFilterOptions = async (params = {}) => {
         setLoadingWilayah(true);
         try {
-            const response = await fetch('/api/wilayah-kerja/kecamatan-list');
+            const query = new URLSearchParams();
+            Object.entries(params).forEach(([key, value]) => {
+                if (value) query.set(key, value);
+            });
+            const response = await fetch(`/api/dashboard/filter-options?${query.toString()}`);
             const data = await response.json();
-            setKecamatanList(data.data || []);
+            return data;
         } catch (error) {
-            console.error('Error fetching kecamatan list:', error);
-            setKecamatanList([]);
-        } finally {
-            setLoadingWilayah(false);
-        }
-    };
-
-    const fetchDesaList = async (kecamatanId) => {
-        setLoadingWilayah(true);
-        try {
-            const response = await fetch(`/api/wilayah-kerja/desa/${kecamatanId}`);
-            const data = await response.json();
-            setDesaList(data.data || []);
-        } catch (error) {
-            console.error('Error fetching desa list:', error);
-            setDesaList([]);
-        } finally {
-            setLoadingWilayah(false);
-        }
-    };
-
-    const fetchSlsList = async (desaId) => {
-        setLoadingWilayah(true);
-        try {
-            const response = await fetch(`/api/wilayah-kerja/sls/${desaId}`);
-            const data = await response.json();
-            setSlsList(data.data || []);
-        } catch (error) {
-            console.error('Error fetching sls list:', error);
-            setSlsList([]);
+            console.error('Error fetching filter options:', error);
+            return { kecamatan: [], pml: [], desa: [] };
         } finally {
             setLoadingWilayah(false);
         }
@@ -147,7 +105,6 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
 
         if (selectedKecamatan) params.set('kecamatan_id', selectedKecamatan);
         if (selectedDesa) params.set('desa_id', selectedDesa);
-        if (selectedSls) params.set('sls_id', selectedSls);
 
         try {
             const response = await fetch(`/api/dashboard/stats-by-location?${params.toString()}`);
@@ -162,38 +119,66 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
     };
 
     useEffect(() => {
-        fetchKecamatanList();
-    }, []);
+        setSelectedKecamatan(null);
+        setSelectedPml(null);
+        setSelectedDesa(null);
+        setPmlOptions([]);
+        setDesaList([]);
+        setPclChartData([]);
+        setPmlName('');
+
+        if (!selectedSurvei) {
+            setKecamatanList([]);
+            return;
+        }
+
+        fetchFilterOptions({ survei_id: selectedSurvei }).then((data) => {
+            setKecamatanList(data.kecamatan || []);
+        });
+    }, [selectedSurvei]);
 
     useEffect(() => {
-        if (selectedKecamatan) {
-            setSelectedDesa(null);
-            setSelectedSls(null);
-            setDesaList([]);
-            setSlsList([]);
-            fetchDesaList(selectedKecamatan);
-        } else {
-            setDesaList([]);
-            setSelectedDesa(null);
-            setSlsList([]);
-            setSelectedSls(null);
+        setSelectedPml(null);
+        setSelectedDesa(null);
+        setPmlOptions([]);
+        setDesaList([]);
+        setPclChartData([]);
+        setPmlName('');
+
+        if (!selectedSurvei || !selectedKecamatan) {
+            return;
         }
+
+        fetchFilterOptions({
+            survei_id: selectedSurvei,
+            kecamatan_id: selectedKecamatan,
+        }).then((data) => {
+            setPmlOptions(data.pml || []);
+        });
     }, [selectedKecamatan]);
 
     useEffect(() => {
-        if (selectedDesa) {
-            setSelectedSls(null);
-            setSlsList([]);
-            fetchSlsList(selectedDesa);
-        } else {
-            setSlsList([]);
-            setSelectedSls(null);
+        setSelectedDesa(null);
+        setDesaList([]);
+        setPclChartData([]);
+        setPmlName('');
+
+        if (!selectedSurvei || !selectedKecamatan || !selectedPml) {
+            return;
         }
-    }, [selectedDesa]);
+
+        fetchFilterOptions({
+            survei_id: selectedSurvei,
+            kecamatan_id: selectedKecamatan,
+            pml_id: selectedPml,
+        }).then((data) => {
+            setDesaList(data.desa || []);
+        });
+    }, [selectedPml]);
 
     useEffect(() => {
         fetchLocationStats();
-    }, [selectedSurvei, selectedPml, selectedKecamatan, selectedDesa, selectedSls]);
+    }, [selectedSurvei, selectedPml, selectedKecamatan, selectedDesa]);
 
     const adminStats = [
         {
@@ -281,7 +266,10 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
 
         return (
             <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h4 className="text-md font-semibold text-gray-800 mb-4">PCL {pcl.nama_pcl}</h4>
+                <div className="mb-4">
+                    <h4 className="text-md font-semibold text-gray-800">PCL {pcl.nama_pcl}</h4>
+                    <p className="text-sm text-gray-500 mt-1">Desa: {pcl.nama_desa || '-'} - SLS: {pcl.nomor_sls || '-'}</p>
+                </div>
                 <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -340,10 +328,10 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
             {/* Filter Section untuk Per Survei & PML */}
             {(role === 'admin' || role === 'PML') && surveis && surveis.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-100 p-6 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Data Per Survei dan PML</h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Data Dashboard</h3>
+                    <div className="grid grid-cols-1 gap-4">
                         {/* Filter Survei */}
-                        <div>
+                        <div className="lg:max-w-xl">
                             <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Survei</label>
                             <select
                                 value={selectedSurvei || ''}
@@ -359,33 +347,14 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                             </select>
                         </div>
 
-                        {/* Filter PML */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih PML</label>
-                            <select
-                                value={selectedPml || ''}
-                                onChange={(e) => setSelectedPml(e.target.value ? parseInt(e.target.value) : null)}
-                                disabled={!selectedSurvei || pmlOptions.length === 0}
-                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedSurvei || pmlOptions.length === 0 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            >
-                                <option value="">-- Pilih PML --</option>
-                                {pmlOptions.map((pml) => (
-                                    <option key={pml.id} value={pml.id}>
-                                        {pml.nama_pml}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Kecamatan</label>
                             <select
                                 value={selectedKecamatan || ''}
                                 onChange={(e) => setSelectedKecamatan(e.target.value ? parseInt(e.target.value) : null)}
-                                disabled={!selectedSurvei || !selectedPml || loadingWilayah}
-                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedSurvei || !selectedPml || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                disabled={!selectedSurvei || loadingWilayah}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedSurvei || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">-- Pilih Kecamatan --</option>
                                 {kecamatanList.map((kecamatan) => (
@@ -397,12 +366,29 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                         </div>
 
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih PML</label>
+                            <select
+                                value={selectedPml || ''}
+                                onChange={(e) => setSelectedPml(e.target.value ? parseInt(e.target.value) : null)}
+                                disabled={!selectedKecamatan || pmlOptions.length === 0 || loadingWilayah}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedKecamatan || pmlOptions.length === 0 || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            >
+                                <option value="">-- Pilih PML --</option>
+                                {pmlOptions.map((pml) => (
+                                    <option key={pml.id} value={pml.id}>
+                                        {pml.nama_pml}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Desa</label>
                             <select
                                 value={selectedDesa || ''}
                                 onChange={(e) => setSelectedDesa(e.target.value ? parseInt(e.target.value) : null)}
-                                disabled={!selectedKecamatan || loadingWilayah}
-                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedKecamatan || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                disabled={!selectedPml || loadingWilayah}
+                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedPml || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">-- Pilih Desa --</option>
                                 {desaList.map((desa) => (
@@ -413,23 +399,8 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                             </select>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Pilih SLS</label>
-                            <select
-                                value={selectedSls || ''}
-                                onChange={(e) => setSelectedSls(e.target.value ? parseInt(e.target.value) : null)}
-                                disabled={!selectedDesa || loadingWilayah}
-                                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!selectedDesa || loadingWilayah ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            >
-                                <option value="">-- Pilih SLS --</option>
-                                {slsList.map((sls) => (
-                                    <option key={sls.id} value={sls.id}>
-                                        {sls.nomor_sls}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
                     </div>
+                </div>
                 </div>
             )}
 
@@ -460,7 +431,7 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
                     </div>
                     <div className="mb-6">
                         <div className="mb-4">
-                            <p className="text-sm text-gray-600 mt-1">Menampilkan data usaha, data keluarga, dan data submit untuk setiap PCL yang bertanggung jawab terhadap PML yang dipilih</p>
+                            <p className="text-sm text-gray-600 mt-1">Menampilkan data usaha, data keluarga, data cacah, dan data submit sesuai filter yang dipilih.</p>
                         </div>
                         {loading ? (
                             <div className="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-100">
@@ -492,9 +463,9 @@ export default function Dashboard({ stats, chartData, role, surveis, pmlsBySurve
             )}
 
             {/* Pesan ketika survei dipilih tapi PML tidak ada */}
-            {(role === 'admin' || role === 'PML') && selectedSurvei && pmlOptions.length === 0 && (
+            {(role === 'admin' || role === 'PML') && selectedSurvei && selectedKecamatan && pmlOptions.length === 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6">
-                    <p className="text-yellow-800">Survei yang dipilih tidak memiliki data PML atau laporan.</p>
+                    <p className="text-yellow-800">Kecamatan yang dipilih tidak memiliki data PML pada survei ini.</p>
                 </div>
             )}
         </MainLayout>

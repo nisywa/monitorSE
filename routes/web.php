@@ -43,6 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
     Route::get('/api/dashboard/chart-data-by-pml', [DashboardController::class, 'getChartDataByPml'])->name('dashboard.chart-data-by-pml');
+    Route::get('/api/dashboard/filter-options', [DashboardController::class, 'getFilterOptions'])->name('dashboard.filter-options');
     Route::get('/api/dashboard/stats-by-location', [DashboardController::class, 'getStatsByLocation'])->name('dashboard.stats-by-location');
 
     // DEBUG Routes (untuk troubleshooting relasi user-pcl-laporan)
@@ -152,4 +153,3 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:PML,PCL')
         ->name('laporan.destroy');
 });
-
