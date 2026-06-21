@@ -60,7 +60,28 @@ export default function LaporanIndex({ laporans, surveis, pmlBySurvei, pclsBySur
         setEditData(null);
         reset();
         clearErrors();
-        setFormKecamatanList([]);
+        const defaultSurveiId = selectedSurveiId || (surveis?.[0]?.id ? String(surveis[0].id) : '');
+        if (role === 'PCL' && defaultSurveiId) {
+            setData({
+                survei_id: defaultSurveiId,
+                pml_id: '',
+                kecamatan_id: '',
+                desa_id: '',
+                sls_id: '',
+                tanggal: '',
+                data_usaha: '',
+                data_cacah: '',
+                data_keluarga: '',
+                data_submit: '',
+                menemukan_usaha_digital: '',
+                jumlah_usaha_digital: '',
+                keterangan: '',
+            });
+            const wilayah = getWilayahForSurvei(defaultSurveiId);
+            setFormKecamatanList(wilayah.kecamatan || []);
+        } else {
+            setFormKecamatanList([]);
+        }
         setDesaList([]);
         setSlsList([]);
         setShowModal(true);

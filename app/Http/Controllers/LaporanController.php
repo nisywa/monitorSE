@@ -698,7 +698,7 @@ class LaporanController extends Controller
                 ? $desaByKey->get($kecamatan->id . '|' . $this->normalizeAssignmentValue($pcl->desa))
                 : null;
             $sls = $desa
-                ? $slsByKey->get($desa->id . '|' . $this->normalizeAssignmentValue($pcl->sls))
+                ? $this->resolveAssignedSls($pcl, $desa, $slsByKey)
                 : null;
 
             foreach ($pcl->surveis as $survei) {
@@ -784,6 +784,25 @@ class LaporanController extends Controller
     private function normalizeAssignmentValue($value): string
     {
         return strtolower(trim((string) $value));
+    }
+
+    private function resolveAssignedSls($pcl, $desa, $slsByKey)
+    {
+        if (!$desa) {
+            return null;
+        }
+
+        if (trim((string) $pcl->sls) !== '') {
+            $matchedSls = $slsByKey->get($desa->id . '|' . $this->normalizeAssignmentValue($pcl->sls));
+
+            if ($matchedSls) {
+                return $matchedSls;
+            }
+        }
+
+        return Sls::where('id', $pcl->id)
+            ->where('desa_id', $desa->id)
+            ->first();
     }
 
     /**
